@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # )
 
 # Agents
-spanish_agent = Agent(
+other_agent = Agent(
     name="Other legal field agent (MISC))",
     instructions="You always respond with 'Sorry, I can only help with Road Traffic Law.'",
     model='gpt-4o'
@@ -49,6 +49,11 @@ summary_agent = Agent(
 road_traffic_prompt = None
 
 # Load road traffic prompt from file
+road_traffic_prompt_file = "./prompts/road_traffic_prompt.md"
+# check if file exists
+if not os.path.isfile(road_traffic_prompt_file):
+    road_traffic_prompt_file = "./prompts/road_traffic_prompt.txt"
+    logger.warning(f"{road_traffic_prompt_file} does not exist. Using {road_traffic_prompt_file}")
 try:
     with open("./prompts/road_traffic_prompt.txt", "r", encoding="utf-8") as file:
         road_traffic_prompt = file.read().strip()
@@ -60,7 +65,7 @@ if not road_traffic_prompt:
     road_traffic_prompt = """Antworte mit "SORRY, Prompt nicht gefunden" und gib den Grund an, warum du nicht helfen kannst."""
     logger.warning("Using hardcoded road traffic prompt as fallback")
 
-english_agent = Agent(
+trafficlaw_agent = Agent(
     name="Road Traffic Law agent (Speeding)",
     instructions=road_traffic_prompt,
     model='gpt-4o'
@@ -87,7 +92,7 @@ if not triage_prompt:
 triage_agent = Agent(
     name="Triage agent",
     instructions=triage_prompt,
-    handoffs=[spanish_agent, english_agent, summary_agent],
+    handoffs=[other_agent, trafficlaw_agent, summary_agent],
     model='gpt-4o-mini'
 )
 
@@ -166,7 +171,7 @@ async def agent_endpoint(
 
 @app.post("/reload-prompts")
 async def reload_prompts(api_key: str = Depends(get_api_key)):
-    global road_traffic_prompt, triage_prompt, english_agent, triage_agent
+    global road_traffic_prompt, triage_prompt, trafficlaw_agent, triage_agent
 
     # Reload road traffic prompt
     try:
@@ -191,7 +196,7 @@ async def reload_prompts(api_key: str = Depends(get_api_key)):
         logger.warning("triage_prompt.txt not found. Using hardcoded triage prompt as fallback.")
 
     # Update agents with reloaded prompts
-    english_agent.instructions = road_traffic_prompt
+    trafficlaw_agent.instructions = road_traffic_prompt
     triage_agent.instructions = triage_prompt
 
     return {"message": "Prompts reloaded successfully"}
