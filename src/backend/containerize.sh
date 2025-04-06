@@ -15,7 +15,7 @@ yellow "Building Docker image for \"$registry/$image_name\"..."
 # ==============
 # Compute checksum of the source directory to detect changes
 checksum_file="./../.${image_name}_checksum"
-source_dir="./"
+source_dir="./app"
 new_checksum=$(find $source_dir -type f -exec shasum {} \; | shasum | awk '{print $1}')
 version_file="./../${image_name}_version.txt"
 
