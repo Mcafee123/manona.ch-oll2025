@@ -116,6 +116,13 @@ export default {
 <template>
   <div class="flex flex-col h-screen max-w-4xl mx-auto px-4 py-6">
     <div class="flex-1 overflow-y-auto mb-4 space-y-4">
+      <h1 class="text-2xl font-bold mb-4">
+        Manona Demo
+      </h1>
+      <p>
+        Diese Demo von Manona zeigt, wie ein KI-gestützter Chatbot nach rechtlich relevanten Informationen fragt.<br>
+        <b>🚨 Bitte keine sensiblen Daten einfügen. Bei deiser Demo handelt es sich um eine Hackathon-Demo. Verwendung auf eigenes Risiko.</b>
+      </p>
       <div v-for="(message, index) in messages" 
            :key="index" 
            :class="[
@@ -126,7 +133,7 @@ export default {
           'chat-bubble whitespace-pre-wrap',
           message.role === 'user' ? 'chat-bubble-primary' : 'chat-bubble-secondary'
         ]">
-          {{ message.content }}
+          {{ message.content.replace(/ß/g, 'ss') }}
         </div>
       </div>
       <div v-if="isLoading" class="loading loading-spinner loading-lg mx-auto"></div>
