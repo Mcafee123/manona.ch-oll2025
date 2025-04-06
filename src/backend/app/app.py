@@ -2,6 +2,9 @@ import os
 from fastapi import FastAPI, Security, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.status import HTTP_403_FORBIDDEN
+from dotenv import load_dotenv
+# Load environment variables from .env file
+load_dotenv()
 
 API_KEY = os.environ.get("CLIENT_API_KEY")
 security = HTTPBearer(auto_error=False)

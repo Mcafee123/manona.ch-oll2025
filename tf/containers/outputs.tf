@@ -9,3 +9,7 @@ output "acr_identity_id" {
 output "acr_login_server" {
   value = azurerm_container_registry.acr.login_server
 }
+
+output "container_app_environment_static_ip" {
+  value = azurerm_container_app_environment.cae.static_ip_address
+}
