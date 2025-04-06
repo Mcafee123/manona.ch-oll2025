@@ -54,7 +54,7 @@ module "Backend" {
   image_name                   = "backend"
 
   client_api_key = var.client_api_key
-  openai_api_key  = var.openai_api_key
+  openai_api_key = var.openai_api_key
 
   depends_on = [module.Containers]
 }
@@ -79,6 +79,7 @@ module "Frontend" {
   acr_identity_id                     = module.Containers.acr_identity_id
   acr_login_server                    = module.Containers.acr_login_server
   image_name                          = "frontend"
+  backend_domain_name                 = "api.manona.ch"
 
   depends_on = [module.Containers]
 }

@@ -66,6 +66,12 @@ resource "azurerm_container_app" "cap" {
       image  = "${var.acr_login_server}/${local.image_name_full}:${data.external.version.result.version}"
       cpu    = 1
       memory = "2Gi"
+
+      env {
+        name = "VITE_API_BASE"
+        value = "https://${var.backend_domain_name}"
+      }
+
       # command = ["/opt/keycloak/bin/kc.sh", "start", "--optimized"] # "start", "--optimized" | "start-dev"
 
       # volume_mounts {
