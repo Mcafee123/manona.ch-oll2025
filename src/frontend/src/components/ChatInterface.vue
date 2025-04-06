@@ -119,7 +119,7 @@ export default {
              message.role === 'user' ? 'chat-end' : 'chat-start'
            ]">
         <div :class="[
-          'chat-bubble',
+          'chat-bubble whitespace-pre-wrap',
           message.role === 'user' ? 'chat-bubble-primary' : 'chat-bubble-secondary'
         ]">
           {{ message.content }}

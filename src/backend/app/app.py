@@ -27,16 +27,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Run local AI model (Ollama)
-model = OpenAIChatCompletionsModel( 
-    model="mistral-small:22b-instruct-2409-fp16",
-    openai_client=AsyncOpenAI(base_url="http://localhost:11434/v1", api_key='ollama'),
-)
+# model = OpenAIChatCompletionsModel( 
+#     model="mistral-small:22b-instruct-2409-fp16",
+#     openai_client=AsyncOpenAI(base_url="http://localhost:11434/v1", api_key='ollama'),
+# )
 
 # Agents
 spanish_agent = Agent(
     name="Other legal field agent (MISC))",
     instructions="You always respond with 'Sorry, I can only help with Road Traffic Law.'",
-    model=model
+    model='gpt-4o-mini'
 )
 
 english_agent = Agent(
@@ -66,7 +66,7 @@ english_agent = Agent(
             #SubVar 2: keine Administrativverfahren
             #SubVar 3: Wird das Fahrzeug beruflich benötigt? >>> *Hast du Beweise dafür?*
     """,
-    model=model
+    model='gpt-4o-mini'
 )
 
 triage_agent = Agent(
@@ -77,7 +77,7 @@ triage_agent = Agent(
     Du darfst keine Fragen beantworten.
     """,
     handoffs=[spanish_agent, english_agent],
-    model=model
+    model='gpt-4o-mini'
 )
 
 # Run Agent
