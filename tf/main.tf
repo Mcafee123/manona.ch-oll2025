@@ -65,6 +65,10 @@ module "Backend" {
   client_api_key = var.client_api_key
   openai_api_key = var.openai_api_key
 
+  storage_account_id = azurerm_storage_account.stor.id
+  storage_account_name = azurerm_storage_account.stor.name
+  storage_account_key = azurerm_storage_account.stor.primary_access_key
+
   depends_on = [module.Containers]
 }
 
