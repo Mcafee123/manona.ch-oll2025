@@ -1,16 +1,22 @@
 import os
-from fastapi import FastAPI, Security, HTTPException, Depends
+from fastapi import FastAPI, Security, HTTPException, Depends, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.status import HTTP_403_FORBIDDEN
 from dotenv import load_dotenv
 from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, function_tool
 import asyncio
+from typing import List
+from pydantic import BaseModel
 
+class Message(BaseModel):
+    role: str
+    content: str
+
+# Run local AI model (Ollama)
 model = OpenAIChatCompletionsModel( 
     model="llama3.1",
     openai_client=AsyncOpenAI(base_url="http://localhost:11434/v1", api_key='ollama'),
 )
-
 
 # Agents
 spanish_agent = Agent(
@@ -33,8 +39,10 @@ triage_agent = Agent(
 )
 
 # Run Agent
-async def main():
-    result = await Runner.run(triage_agent, input="Ich möchte ein Bier kaufen.")
+async def main(message_history: List[Message]):
+    # Convert Message objects to dictionaries
+    formatted_messages = [{"role": msg.role, "content": msg.content} for msg in message_history]
+    result = await Runner.run(triage_agent, input=formatted_messages)
     print(result.final_output)
     return result.final_output
 
@@ -73,9 +81,12 @@ async def root():
 async def secured_endpoint(api_key: str = Depends(get_api_key)):
     return {"message": "This is a secured endpoint"}
 
-@app.get("/agent")
-async def agent_endpoint(api_key: str = Depends(get_api_key)):
-    return await main()
+@app.post("/agent")
+async def agent_endpoint(
+    api_key: str = Depends(get_api_key), 
+    message_history: List[Message] = Body(...)
+):
+    return await main(message_history)
 
 if __name__ == "__main__":
     import uvicorn
