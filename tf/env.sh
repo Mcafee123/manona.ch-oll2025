@@ -18,3 +18,9 @@ export TF_VAR_restart_var="RESTART_VAR"
 # cloudflare
 export TF_VAR_cloudflare_api_token="$CLOUDFLARE_API_TOKEN"
 export TF_VAR_cloudflare_zone_id="$CLOUDFLARE_ZONE_ID"
+
+# frontend
+export TF_VAR_frontend_domain_name="manona.ch"
+
+# backend
+export TF_VAR_backend_domain_name="api.manona.ch"

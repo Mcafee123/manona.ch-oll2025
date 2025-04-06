@@ -1,12 +1,8 @@
-data "azurerm_resource_group" "rg" {
-  name = var.rg_name
-}
-
 # container registry
 resource "azurerm_container_registry" "acr" {
   name                = "${var.base_name}acr"
   resource_group_name = var.rg_name
-  location            = data.azurerm_resource_group.rg.location
+  location            = var.location
   sku                 = "Basic"
   admin_enabled       = true
 }
@@ -14,14 +10,14 @@ resource "azurerm_container_registry" "acr" {
 # container app environment
 resource "azurerm_container_app_environment" "cae" {
   name                       = "${var.base_name}-cae"
-  location                   = data.azurerm_resource_group.rg.location
+  location                   = var.location
   resource_group_name        = var.rg_name
   log_analytics_workspace_id = var.log_analytics_workspace_id
 }
 
 # user managed identity for container registry
 resource "azurerm_user_assigned_identity" "acr_identity" {
-  location            = data.azurerm_resource_group.rg.location
+  location            = var.location
   name                = "${var.base_name}_acr_identity"
   resource_group_name = var.rg_name
 }
