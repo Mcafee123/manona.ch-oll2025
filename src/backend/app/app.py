@@ -37,7 +37,13 @@ logger = logging.getLogger(__name__)
 spanish_agent = Agent(
     name="Other legal field agent (MISC))",
     instructions="You always respond with 'Sorry, I can only help with Road Traffic Law.'",
-    model='gpt-4o-mini'
+    model='gpt-4o'
+)
+
+summary_agent = Agent(
+    name="Summary agent",
+    instructions="Wenn alle Informationen vorliegen, fasse die Informationen zusammen und gib sie zurück und bedanke dich beim Benutzer für die Informationen. Wir werden die Daten nun an die/den zuständige/n Anwätin/Anwalt weiterleiten.",
+    model='gpt-4o'
 )
 
 road_traffic_prompt = None
@@ -57,7 +63,7 @@ if not road_traffic_prompt:
 english_agent = Agent(
     name="Road Traffic Law agent (Speeding)",
     instructions=road_traffic_prompt,
-    model='gpt-4o-mini'
+    model='gpt-4o'
 )
 
 triage_prompt = None
@@ -81,7 +87,7 @@ if not triage_prompt:
 triage_agent = Agent(
     name="Triage agent",
     instructions=triage_prompt,
-    handoffs=[spanish_agent, english_agent],
+    handoffs=[spanish_agent, english_agent, summary_agent],
     model='gpt-4o-mini'
 )
 
