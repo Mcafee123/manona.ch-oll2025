@@ -53,8 +53,10 @@ export default {
             throw new Error('API token is required');
           }
         }
+
+        let url= import.meta.env.VITE_API_BASE+'/agent'
         
-        const response = await axios.post('http://localhost:8000/agent', this.messages, {
+        const response = await axios.post(url, this.messages, {
           headers: {
             Authorization: `Bearer ${this.token}`,
             'Content-Type': 'application/json'
