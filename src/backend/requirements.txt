@@ -3,3 +3,4 @@ requests
 gunicorn
 fastapi[standard]
 openai-agents
+asyncio
