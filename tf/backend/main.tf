@@ -29,6 +29,21 @@ data "external" "version" {
   depends_on = [ null_resource.docker-buildx ]
 }
 
+resource "azurerm_storage_share" "configshare" {
+  name               = "configshare"
+  storage_account_id = var.storage_account_id
+  quota              = 1
+}
+
+resource "azurerm_container_app_environment_storage" "config_volume" {
+  name                         = "configsvolume"
+  container_app_environment_id = var.container_app_environment_id
+  account_name                 = var.storage_account_name
+  share_name                   = azurerm_storage_share.configshare.name
+  access_key                   = var.storage_account_key
+  access_mode                  = "ReadOnly"
+}
+
 resource "azurerm_container_app" "cap" {
   name                         = "${var.base_name}-backend"
   container_app_environment_id = var.container_app_environment_id
@@ -78,17 +93,17 @@ resource "azurerm_container_app" "cap" {
         value = var.openai_api_key
       }
       
-      # volume_mounts {
-      #   name = "certs-volume"
-      #   path = "/etc/ssl/certs"
-      # }
+      volume_mounts {
+        name = "config"
+        path = "/app/prompts"
+      }
     }
 
-#     volume {
-#       name = "certs-volume"
-#       storage_name = var.storage_name
-#       storage_type = "AzureFile"
-#     }
+    volume {
+      name = "config"
+      storage_name = azurerm_container_app_environment_storage.config_volume.name
+      storage_type = "AzureFile"
+    }
   }
 }
 

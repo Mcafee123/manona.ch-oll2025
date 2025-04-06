@@ -12,6 +12,15 @@ locals {
   location = var.location
 }
 
+# storage account
+resource "azurerm_storage_account" "stor" {
+  name                     = "${var.base_name}stor"
+  resource_group_name      = local.rg_name
+  location                 = local.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
 # Logging-Module
 module "Logging" {
   source = "./logging"

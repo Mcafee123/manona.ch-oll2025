@@ -8,6 +8,21 @@ variable "rg_name" {
   description = "Name of the resource group."
 }
 
+variable "storage_account_id" {
+  type        = string
+  description = "Storage account id."
+}
+
+variable "storage_account_name" {
+  type        = string
+  description = "Storage account name."
+}
+
+variable "storage_account_key" {
+  type        = string
+  description = "Storage account key."
+}
+
 variable "container_app_environment_id" {
   type        = string
   description = "container app environment id."
