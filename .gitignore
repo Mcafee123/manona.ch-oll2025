@@ -42,3 +42,4 @@ Files/
 /src/.idea/**
 src/**/pub/**
 __*.sh
+*.env
