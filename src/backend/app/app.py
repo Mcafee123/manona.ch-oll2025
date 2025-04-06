@@ -36,68 +36,79 @@ logger = logging.getLogger(__name__)
 #     openai_client=AsyncOpenAI(base_url="http://localhost:11434/v1", api_key='ollama'),
 # )
 
-# Agents
-other_agent = Agent(
-    name="Other legal field agent (MISC))",
-    instructions="You always respond with 'Sorry, I can only help with Road Traffic Law.'",
-    model='gpt-4o'
-)
+modelname = 'gpt-4o'
+triage_modelname = 'gpt-4o-mini'
 
-summary_agent = Agent(
-    name="Summary agent",
-    instructions="Wenn alle Informationen vorliegen, fasse die Informationen zusammen und gib sie zurück und bedanke dich beim Benutzer für die Informationen. Wir werden die Daten nun an die/den zuständige/n Anwätin/Anwalt weiterleiten.",
-    model='gpt-4o'
-)
+global triage_agent
+triage_agent = None
+global trafficlaw_agent
+trafficlaw_agent = None
+global other_agent
+other_agent = None
+global summary_agent
+summary_agent = None
 
-road_traffic_prompt = None
+def load_prompt(filename: str, default: str) -> str:
+    """
+    Load a prompt from a file.
+    """
+    txtfile = filename + ".txt"
+    mdfile = filename + ".md"
+    try:
+        with open(txtfile, "r", encoding="utf-8") as file:
+            return file.read().strip()
+    except FileNotFoundError:
+        logger.warning(f"{txtfile} not found. Using {mdfile}.")
+        try:
+            with open(mdfile, "r", encoding="utf-8") as file:
+                return file.read().strip()
+        except FileNotFoundError:
+            logger.warning(f"{filename} not found. Using hardcoded prompt as fallback.")
+            return default
 
-# Load road traffic prompt from file
-road_traffic_prompt_file = "./prompts/road_traffic_prompt.md"
-# check if file exists
-if not os.path.isfile(road_traffic_prompt_file):
-    road_traffic_prompt_file = "./prompts/road_traffic_prompt.txt"
-    logger.warning(f"{road_traffic_prompt_file} does not exist. Using {road_traffic_prompt_file}")
-try:
-    with open("./prompts/road_traffic_prompt.txt", "r", encoding="utf-8") as file:
-        road_traffic_prompt = file.read().strip()
-except FileNotFoundError:
-    logger.warning("road_traffic_prompt.txt not found. Using hardcoded road traffic prompt as fallback.")
 
-# Fall back to hardcoded prompt if file loading fails
-if not road_traffic_prompt:
-    road_traffic_prompt = """Antworte mit "SORRY, Prompt nicht gefunden" und gib den Grund an, warum du nicht helfen kannst."""
-    logger.warning("Using hardcoded road traffic prompt as fallback")
+# Load agents
+def load_agents():
 
-trafficlaw_agent = Agent(
-    name="Road Traffic Law agent (Speeding)",
-    instructions=road_traffic_prompt,
-    model='gpt-4o'
-)
-
-triage_prompt = None
-
-# Load triage prompt from file
-try:
-    with open("./prompts/triage_prompt.txt", "r", encoding="utf-8") as file:
-        triage_prompt = file.read().strip()
-except FileNotFoundError:
-    logger.warning("triage_prompt.txt not found. Using hardcoded triage prompt as fallback.")
-
-# Fall back to hardcoded prompt if file loading fails
-if not triage_prompt:
-    triage_prompt = """
+    # Prompts
+    triage_prompt = load_prompt("./prompts/triage_prompt", """
     Frage den Benutzer, um was es geht, und versuche den Fall dem korrekten Agenten zuzuordnen.
     Leite nur an den Agenten weiter, wenn du sicher bist, dass es sich um einen Fall handelt, der von einem Agenten bearbeitet werden kann.
     Du darfst keine Fragen beantworten.
-    """
-    logger.warning("Using hardcoded triage prompt as fallback")
+    """)
 
-triage_agent = Agent(
-    name="Triage agent",
-    instructions=triage_prompt,
-    handoffs=[other_agent, trafficlaw_agent, summary_agent],
-    model='gpt-4o-mini'
-)
+    # Agents
+    road_traffic_prompt = load_prompt("./prompts/road_traffic_prompt", """
+        Antworte mit "SORRY, Prompt nicht gefunden" und gib den Grund an, warum du nicht helfen kannst.
+        """)
+    
+    trafficlaw_agent = Agent(
+        name="Road Traffic Law agent (Speeding)",
+        instructions=road_traffic_prompt,
+        model=modelname
+    )
+
+    other_agent = Agent(
+        name="Other legal field agent (MISC))",
+        instructions="You always respond with 'Sorry, I can only help with Road Traffic Law.'",
+        model=modelname
+    )
+
+    summary_agent = Agent(
+        name="Summary agent",
+        instructions="Wenn alle Informationen vorliegen, fasse die Informationen zusammen und gib sie zurück und bedanke dich beim Benutzer für die Informationen. Wir werden die Daten nun an die/den zuständige/n Anwätin/Anwalt weiterleiten.",
+        model=modelname
+    )
+    
+    triage_agent = Agent(
+        name="Triage agent",
+        instructions=triage_prompt,
+        handoffs=[other_agent, trafficlaw_agent, summary_agent],
+        model=triage_modelname
+    )
+    
+# Load agents
+load_agents()
 
 # Run Agent
 async def main(message_history: List[Message]):
@@ -176,31 +187,8 @@ async def agent_endpoint(
 async def reload_prompts(api_key: str = Depends(get_api_key)):
     global road_traffic_prompt, triage_prompt, trafficlaw_agent, triage_agent
 
-    # Reload road traffic prompt
-    try:
-        with open("./prompts/road_traffic_prompt.txt", "r", encoding="utf-8") as file:
-            road_traffic_prompt = file.read().strip()
-        logger.info("road_traffic_prompt.txt reloaded successfully.")
-    except FileNotFoundError:
-        road_traffic_prompt = """Antworte mit "SORRY, Prompt nicht gefunden" und gib den Grund an, warum du nicht helfen kannst."""
-        logger.warning("road_traffic_prompt.txt not found. Using hardcoded road traffic prompt as fallback.")
-
-    # Reload triage prompt
-    try:
-        with open("./prompts/triage_prompt.txt", "r", encoding="utf-8") as file:
-            triage_prompt = file.read().strip()
-        logger.info("triage_prompt.txt reloaded successfully.")
-    except FileNotFoundError:
-        triage_prompt = """
-        Frage den Benutzer, um was es geht, und versuche den Fall dem korrekten Agenten zuzuordnen.
-        Leite nur an den Agenten weiter, wenn du sicher bist, dass es sich um einen Fall handelt, der von einem Agenten bearbeitet werden kann.
-        Du darfst keine Fragen beantworten.
-        """
-        logger.warning("triage_prompt.txt not found. Using hardcoded triage prompt as fallback.")
-
-    # Update agents with reloaded prompts
-    trafficlaw_agent.instructions = road_traffic_prompt
-    triage_agent.instructions = triage_prompt
+    # Reload agents
+    load_agents()
 
     return {"message": "Prompts reloaded successfully"}
 
