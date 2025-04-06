@@ -9,6 +9,7 @@ from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, funct
 import asyncio
 from typing import List
 from pydantic import BaseModel
+import os
 
 class Message(BaseModel):
     role: str
@@ -39,43 +40,47 @@ spanish_agent = Agent(
     model='gpt-4o-mini'
 )
 
+road_traffic_prompt = None
+
+# Load road traffic prompt from file
+try:
+    with open("./prompts/road_traffic_prompt.txt", "r", encoding="utf-8") as file:
+        road_traffic_prompt = file.read().strip()
+except FileNotFoundError:
+    logger.warning("road_traffic_prompt.txt not found. Using hardcoded road traffic prompt as fallback.")
+
+# Fall back to hardcoded prompt if file loading fails
+if not road_traffic_prompt:
+    road_traffic_prompt = """Antworte mit "SORRY, Prompt nicht gefunden" und gib den Grund an, warum du nicht helfen kannst."""
+    logger.warning("Using hardcoded road traffic prompt as fallback")
+
 english_agent = Agent(
     name="Road Traffic Law agent (Speeding)",
-    instructions="""
-    Deine Aufgabe ist es, Antworten auf die folgenden Fragen zu sammeln:
-    #GOAL: Alle Dokumente zu erhalten und Persönliche Informationen über den folgenden Fall.
-    #USE CASE Strafbefehl/Busse Strassenverkehr
-    #Frage 1: (Personalien) Name, Geburtsdatum, Führerausweis 
-    #Frage 2: Was ist passiert? (Nur Blitzerfälle)
-    #Frage 3: Beleg: Hast du ein Dokument erhalten? 
-        #Var 1: nichts -> nicht genügend Informationen
-        #Var 2: Rechnung/Busse 
-        #Var 3: Starfbefehl
-        #Var 4: Vorladung
-    #Frage 4: Wann und wo (Strasse) wurdest du geblitzt? (Um Abweichungen festzustellen)
-    #Frage 5: Wer ist der Halter des Fahrzeuges?
-        #Var 1: Ich (der jetzt chattet) >>> *Fahrzeugausweis?*
-        #Var 2: jemand anderes >>> *Wer?* 
-    #Frage 6: Was ist dein Anliegen?
-        #Var 1: Willst du die Strafe anfechten?
-            #SubVar 1: Anfechten weil: ich nicht gefahren >>> *Foto; falls vorhanden?* 
-            #SubVar 2: Anfechten weil: Messung war falsch >>> *Hast du Beweise dafür?*
-            #SubVar 3: Anfechten weil: es war ein Notfall >>> *Hast du Beweise dafür?*
-        #Var 2: Ich möchte wissen, ob mein Führerausweis entzogen wird
-            #SubVar 1: Vorherige Administrativmassnahmen angeordnet >>> *Dokument*
-            #SubVar 2: keine Administrativverfahren
-            #SubVar 3: Wird das Fahrzeug beruflich benötigt? >>> *Hast du Beweise dafür?*
-    """,
+    instructions=road_traffic_prompt,
     model='gpt-4o-mini'
 )
 
-triage_agent = Agent(
-    name="Triage agent",
-    instructions="""
+triage_prompt = None
+
+# Load triage prompt from file
+try:
+    with open("./prompts/triage_prompt.txt", "r", encoding="utf-8") as file:
+        triage_prompt = file.read().strip()
+except FileNotFoundError:
+    logger.warning("triage_prompt.txt not found. Using hardcoded triage prompt as fallback.")
+
+# Fall back to hardcoded prompt if file loading fails
+if not triage_prompt:
+    triage_prompt = """
     Frage den Benutzer, um was es geht, und versuche den Fall dem korrekten Agenten zuzuordnen.
     Leite nur an den Agenten weiter, wenn du sicher bist, dass es sich um einen Fall handelt, der von einem Agenten bearbeitet werden kann.
     Du darfst keine Fragen beantworten.
-    """,
+    """
+    logger.warning("Using hardcoded triage prompt as fallback")
+
+triage_agent = Agent(
+    name="Triage agent",
+    instructions=triage_prompt,
     handoffs=[spanish_agent, english_agent],
     model='gpt-4o-mini'
 )
