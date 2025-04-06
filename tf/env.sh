@@ -24,3 +24,5 @@ export TF_VAR_frontend_domain_name="manona.ch"
 
 # backend
 export TF_VAR_backend_domain_name="api.manona.ch"
+export TF_VAR_open_api_key="$OPENAI_API_KEY"
+export TF_VAR_client_api_key="$CLIENT_API_KEY"

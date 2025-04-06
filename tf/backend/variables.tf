@@ -43,3 +43,15 @@ variable "cloudflare_api_token" {
   description = "Cloudflare API token."
   sensitive   = true
 }
+
+variable "client_api_key" {
+  type        = string
+  description = "Client API key for Keycloak."
+  sensitive   = true
+}
+
+variable "openai_api_key" {
+  type        = string
+  description = "Client API key for Keycloak."
+  sensitive   = true
+}

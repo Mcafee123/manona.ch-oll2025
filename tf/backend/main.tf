@@ -68,6 +68,16 @@ resource "azurerm_container_app" "cap" {
       memory = "2Gi"
       # command = ["/opt/keycloak/bin/kc.sh", "start", "--optimized"] # "start", "--optimized" | "start-dev"
 
+      env {
+        name = "CLIENT_API_KEY"
+        value = var.client_api_key
+      }
+
+      env {
+        name = "OPENAI_API_KEY"
+        value = var.openai_api_key
+      }
+      
       # volume_mounts {
       #   name = "certs-volume"
       #   path = "/etc/ssl/certs"
