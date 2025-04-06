@@ -46,6 +46,8 @@ global other_agent
 other_agent = None
 global summary_agent
 summary_agent = None
+global collection_agent
+collection_agent = None
 
 def load_prompt(filename: str, default: str) -> str:
     """
