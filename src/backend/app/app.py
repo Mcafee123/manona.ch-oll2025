@@ -88,6 +88,16 @@ def load_agents():
         instructions=road_traffic_prompt,
         model=modelname
     )
+    
+    debt_collection_prompt = load_prompt("./prompts/betreibung_prompt", """
+        Antworte mit "SORRY, Prompt nicht gefunden" und gib den Grund an, warum du nicht helfen kannst.
+        """)
+    
+    collection_agent = Agent(
+        name="Debt collection agent",
+        instructions=debt_collection_prompt,
+        model=modelname
+    )
 
     other_agent = Agent(
         name="Other legal field agent (MISC))",
@@ -104,7 +114,7 @@ def load_agents():
     triage_agent = Agent(
         name="Triage agent",
         instructions=triage_prompt,
-        handoffs=[other_agent, trafficlaw_agent, summary_agent],
+        handoffs=[other_agent, trafficlaw_agent, collection_agent, summary_agent],
         model=modelname
     )
     
@@ -186,8 +196,6 @@ async def agent_endpoint(
 
 @app.post("/reload-prompts")
 async def reload_prompts(api_key: str = Depends(get_api_key)):
-    global road_traffic_prompt, triage_prompt, trafficlaw_agent, triage_agent
-
     # Reload agents
     load_agents()
 
