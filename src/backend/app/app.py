@@ -37,7 +37,6 @@ logger = logging.getLogger(__name__)
 # )
 
 modelname = 'gpt-4o'
-triage_modelname = 'gpt-4o-mini'
 
 global triage_agent
 triage_agent = None
@@ -106,7 +105,7 @@ def load_agents():
         name="Triage agent",
         instructions=triage_prompt,
         handoffs=[other_agent, trafficlaw_agent, summary_agent],
-        model=triage_modelname
+        model=modelname
     )
     
 # Load agents

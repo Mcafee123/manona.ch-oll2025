@@ -59,7 +59,7 @@ export default {
 
       // Clear input and file
       this.newMessage = '';
-      const hadFile = !!this.selectedFile;
+      // const hadFile = !!this.selectedFile;
       this.selectedFile = null;
       this.parsedFileContent = '';
 
