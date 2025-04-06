@@ -39,3 +39,15 @@ variable "frontend_domain_name" {
   type        = string
   description = "Domain name for the frontend instance."
 }
+
+variable "client_api_key" {
+  type        = string
+  description = "Client API key for Keycloak."
+  sensitive   = true
+}
+
+variable "openai_api_key" {
+  type        = string
+  description = "Client API key for Keycloak."
+  sensitive   = true
+}

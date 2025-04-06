@@ -53,6 +53,9 @@ module "Backend" {
   acr_login_server             = module.Containers.acr_login_server
   image_name                   = "backend"
 
+  client_api_key = var.client_api_key
+  openai_api_key  = var.openai_api_key
+
   depends_on = [module.Containers]
 }
 
