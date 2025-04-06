@@ -55,12 +55,14 @@ def load_prompt(filename: str, default: str) -> str:
     txtfile = filename + ".txt"
     mdfile = filename + ".md"
     try:
-        with open(txtfile, "r", encoding="utf-8") as file:
+        with open(mdfile, "r", encoding="utf-8") as file:
+            logger.info(f"Loaded prompt from {mdfile}")
             return file.read().strip()
     except FileNotFoundError:
-        logger.warning(f"{txtfile} not found. Using {mdfile}.")
+        logger.warning(f"{mdfile} not found. Using {txtfile}.")
         try:
-            with open(mdfile, "r", encoding="utf-8") as file:
+            with open(txtfile, "r", encoding="utf-8") as file:
+                logger.info(f"Loaded prompt from {txtfile}")
                 return file.read().strip()
         except FileNotFoundError:
             logger.warning(f"{filename} not found. Using hardcoded prompt as fallback.")
