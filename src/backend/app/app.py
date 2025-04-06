@@ -158,6 +158,38 @@ async def agent_endpoint(
     logger.info("#" * 50)
     return await main(message_history)
 
+@app.post("/reload-prompts")
+async def reload_prompts(api_key: str = Depends(get_api_key)):
+    global road_traffic_prompt, triage_prompt, english_agent, triage_agent
+
+    # Reload road traffic prompt
+    try:
+        with open("./prompts/road_traffic_prompt.txt", "r", encoding="utf-8") as file:
+            road_traffic_prompt = file.read().strip()
+        logger.info("road_traffic_prompt.txt reloaded successfully.")
+    except FileNotFoundError:
+        road_traffic_prompt = """Antworte mit "SORRY, Prompt nicht gefunden" und gib den Grund an, warum du nicht helfen kannst."""
+        logger.warning("road_traffic_prompt.txt not found. Using hardcoded road traffic prompt as fallback.")
+
+    # Reload triage prompt
+    try:
+        with open("./prompts/triage_prompt.txt", "r", encoding="utf-8") as file:
+            triage_prompt = file.read().strip()
+        logger.info("triage_prompt.txt reloaded successfully.")
+    except FileNotFoundError:
+        triage_prompt = """
+        Frage den Benutzer, um was es geht, und versuche den Fall dem korrekten Agenten zuzuordnen.
+        Leite nur an den Agenten weiter, wenn du sicher bist, dass es sich um einen Fall handelt, der von einem Agenten bearbeitet werden kann.
+        Du darfst keine Fragen beantworten.
+        """
+        logger.warning("triage_prompt.txt not found. Using hardcoded triage prompt as fallback.")
+
+    # Update agents with reloaded prompts
+    english_agent.instructions = road_traffic_prompt
+    triage_agent.instructions = triage_prompt
+
+    return {"message": "Prompts reloaded successfully"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
