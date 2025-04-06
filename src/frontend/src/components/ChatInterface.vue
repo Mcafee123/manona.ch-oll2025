@@ -39,7 +39,7 @@ export default {
           }
         });
         console.log('Parsed file response:', response.data);
-        return response.data;
+        return response.data.text;
       } catch (error) {
         console.error('Error parsing file:', error);
         throw error;
@@ -59,7 +59,7 @@ export default {
 
       // Clear input and file
       this.newMessage = '';
-      // const hadFile = !!this.selectedFile;
+      //const hadFile = !!this.selectedFile;
       this.selectedFile = null;
       this.parsedFileContent = '';
 
