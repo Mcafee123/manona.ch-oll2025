@@ -13,6 +13,11 @@ variable "container_app_environment_id" {
   description = "container app environment id."
 }
 
+variable "container_app_environment_static_ip" {
+  type        = string
+  description = "static ip address of the container app environment."
+}
+
 variable "acr_identity_id" {
   type       = string
   description = "webapi acr identity id."
