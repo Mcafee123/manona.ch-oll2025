@@ -1,3 +1,4 @@
+python-dotenv
 requests
 gunicorn
 fastapi[standard]
