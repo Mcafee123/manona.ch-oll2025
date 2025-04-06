@@ -55,7 +55,10 @@ export default {
           }
         }
 
-        let url= import.meta.env.VITE_API_BASE+'/agent'
+        let url='https://api.manona.ch/agent'
+
+        console.log('Sending message to:', url);
+        console.log('Messages:', this.messages);
         
         const response = await axios.post(url, this.messages, {
           headers: {
