@@ -55,12 +55,10 @@ export default {
           }
         }
 
-        let url='https://api.manona.ch/agent'
 
-        console.log('Sending message to:', url);
         console.log('Messages:', this.messages);
         
-        const response = await axios.post(url, this.messages, {
+        const response = await axios.post("https://api.manona.ch/agent", this.messages, {
           headers: {
             Authorization: `Bearer ${this.token}`,
             'Content-Type': 'application/json'
