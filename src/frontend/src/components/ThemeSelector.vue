@@ -17,25 +17,27 @@
     </div>
 </template>
 
-<script>
-export default {
+<script lang="ts">
+import { defineComponent } from 'vue';
+
+export default defineComponent({
     name: 'ThemeSelector',
     data() {
         return {
-            themes: ['light', 'dark']
-        }
+            themes: ['light', 'dark'] as string[]
+        };
     },
     methods: {
-        setTheme(theme) {
-            document.documentElement.setAttribute('data-theme', theme)
-            localStorage.setItem('theme', theme)
+        setTheme(theme: string) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
         }
     },
     mounted() {
-        const savedTheme = localStorage.getItem('theme')
+        const savedTheme = localStorage.getItem('theme');
         if (savedTheme) {
-            this.setTheme(savedTheme)
+            this.setTheme(savedTheme);
         }
     }
-}
+});
 </script>
