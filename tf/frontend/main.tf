@@ -18,16 +18,16 @@ resource "null_resource" "docker-buildx" {
   }
 }
 
-# # get the version dynamically from the container registry
-# data "external" "version" {
-#   program = ["bash", "-c", <<EOF
-#     version=$(az acr repository show-tags -n ${var.acr_login_server} --repository ${local.image_name_full} --top 1 --orderby time_desc -o tsv)
-#     echo "{\"version\": \"$version\"}"
-#   EOF
-#   ]
+# get the version dynamically from the container registry
+data "external" "version" {
+  program = ["bash", "-c", <<EOF
+    version=$(az acr repository show-tags -n ${var.acr_login_server} --repository ${local.image_name_full} --top 1 --orderby time_desc -o tsv)
+    echo "{\"version\": \"$version\"}"
+  EOF
+  ]
 
-#   depends_on = [ null_resource.docker-buildx ]
-# }
+  depends_on = [ null_resource.docker-buildx ]
+}
 
 resource "azurerm_container_app" "cap" {
   name                         = "${var.base_name}-frontend"
@@ -63,7 +63,7 @@ resource "azurerm_container_app" "cap" {
     
     container {
       name   = "frontend"
-      image  = "nginx:1.27.4-alpine-slim"
+      image  = "${var.acr_login_server}/${local.image_name_full}:${data.external.version.result.version}"
       cpu    = 1
       memory = "2Gi"
       # command = ["/opt/keycloak/bin/kc.sh", "start", "--optimized"] # "start", "--optimized" | "start-dev"

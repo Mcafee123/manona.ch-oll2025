@@ -2,6 +2,8 @@
 
 # author: martin@affolter.net
 
+set -e
+
 yellow() { printf "\e[33m$*\e[0m\n"; }
 green() { printf  "\e[32m$*\e[0m\n"; }
 
@@ -9,13 +11,21 @@ green() { printf  "\e[32m$*\e[0m\n"; }
 registry="$1"
 image_name="$2"
 
+if [ -z "$registry" ] || [ -z "$image_name" ]; then
+  echo "Error: Missing required parameters."
+  echo "Usage: $0 <registry> <image_name>"
+  echo "  <registry>      The name of the Azure Container Registry."
+  echo "  <image_name>    The custom name for the image."
+  exit 1
+fi
+
 yellow "Building Docker image for \"$registry/$image_name\"..."
 
 # detect changes
 # ==============
 # Compute checksum of the source directory to detect changes
 checksum_file="./../.${image_name}_checksum"
-source_dir="./"
+source_dir="./src"
 new_checksum=$(find $source_dir -type f -exec shasum {} \; | shasum | awk '{print $1}')
 version_file="./../${image_name}_version.txt"
 
@@ -65,7 +75,7 @@ if [ "$new_checksum" != "$old_checksum" ]; then
   # "buildx" is used
   # ====================================================
   # Create a new builder instance
-  docker buildx create --use --name mybuilder
+  # docker buildx create --use --name mybuilder
 
   # Inspect the builder to ensure it supports multi-platform builds
   docker buildx inspect mybuilder --bootstrap
