@@ -1,6 +1,9 @@
 python-dotenv
 requests
 gunicorn
-fastapi[standard]
+fastapi
 openai-agents
 asyncio
+unstructured
+unstructured[pdf]
+unstructured[docx]
