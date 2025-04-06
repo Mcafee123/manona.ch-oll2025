@@ -16,6 +16,7 @@ export default {
       dragActive: false,
       selectedFile: null as File | null,
       token: localStorage.getItem('token') || ''
+
     }
   },
   mounted() {
@@ -127,6 +128,8 @@ export default {
           {{ message.content }}
         </div>
       </div>
+      <div v-if="isLoading" class="loading loading-spinner loading-lg mx-auto"></div>
+
     </div>
     
     <div class="input-container"
