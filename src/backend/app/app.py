@@ -7,9 +7,12 @@ from starlette.status import HTTP_403_FORBIDDEN
 from dotenv import load_dotenv
 from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, function_tool
 import asyncio
-from typing import List
+from typing import List, Dict
 from pydantic import BaseModel
 import os
+from unstructured.partition.pdf import partition_pdf
+from unstructured.partition.docx import partition_docx
+import tempfile
 
 class Message(BaseModel):
     role: str
@@ -195,6 +198,59 @@ async def reload_prompts(api_key: str = Depends(get_api_key)):
     triage_agent.instructions = triage_prompt
 
     return {"message": "Prompts reloaded successfully"}
+
+@app.post("/parse-document")
+async def parse_document(
+    request: Request,
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Parse a document using unstructured and return the extracted text.
+    Supports PDF and DOCX formats.
+    """
+    # Get the form data using FastAPI's form handling
+    form_data = await request.form()
+    
+    # Check if a file was uploaded
+    if "file" not in form_data:
+        return {"error": "No file uploaded"}
+    
+    file = form_data["file"]
+    
+    # Create a temporary file to save the uploaded file
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        # Write the content of the uploaded file to the temporary file
+        content = await file.read()
+        temp_file.write(content)
+        temp_file_path = temp_file.name
+
+    try:
+        # Get the file extension
+        file_extension = file.filename.split('.')[-1].lower() if file.filename else ''
+        
+        # Parse the document based on its type
+        if file_extension == 'pdf':
+            elements = partition_pdf(filename=temp_file_path)
+        elif file_extension in ['docx', 'doc']:
+            elements = partition_docx(filename=temp_file_path)
+        else:
+            os.unlink(temp_file_path)  # Clean up the temporary file
+            return {"error": f"Unsupported file format: {file_extension}. Supported formats are PDF and DOCX."}
+        
+        # Convert all elements to text and join them
+        text = "\n".join([str(element) for element in elements])
+        
+        return {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "text": text
+        }
+    except Exception as e:
+        logger.error(f"Error parsing document: {str(e)}")
+        return {"error": f"Failed to parse document: {str(e)}"}
+    finally:
+        # Clean up the temporary file
+        os.unlink(temp_file_path)
 
 if __name__ == "__main__":
     import uvicorn

@@ -15,8 +15,8 @@ export default {
       isLoading: false,
       dragActive: false,
       selectedFile: null as File | null,
+      parsedFileContent: '',
       token: localStorage.getItem('token') || ''
-
     }
   },
   mounted() {
@@ -28,6 +28,24 @@ export default {
     }
   },
   methods: {
+    async parseFile(file: File): Promise<string> {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      try {
+        const response = await axios.post("http://localhost:8000/parse-document", formData, {
+          headers: {
+            Authorization: `Bearer ${this.token}`
+          }
+        });
+        console.log('Parsed file response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error parsing file:', error);
+        throw error;
+      }
+    },
+    
     async sendMessage() {
       if (!this.newMessage.trim() && !this.selectedFile) return;
 
@@ -35,13 +53,15 @@ export default {
       this.messages.push({
         role: 'user',
         content: this.selectedFile 
-          ? `Uploaded file: ${this.selectedFile.name}`
+          ? `Uploaded file: ${this.selectedFile.name}${this.parsedFileContent ? '\n\nContent: ' + this.parsedFileContent : ''}`
           : this.newMessage
       });
 
       // Clear input and file
       this.newMessage = '';
+      const hadFile = !!this.selectedFile;
       this.selectedFile = null;
+      this.parsedFileContent = '';
 
       try {
         this.isLoading = true;
@@ -90,7 +110,7 @@ export default {
       e.preventDefault();
       this.dragActive = false;
     },
-    handleDrop(e: DragEvent) {
+    async handleDrop(e: DragEvent) {
       e.preventDefault();
       this.dragActive = false;
       
@@ -98,15 +118,33 @@ export default {
         const file = e.dataTransfer.files[0];
         if (file.type === 'application/pdf') {
           this.selectedFile = file;
+          this.startFileProcessing(file);
         } else {
           alert('Please upload only PDF files');
         }
       }
     },
-    handleFileSelect(e: Event) {
+    async handleFileSelect(e: Event) {
       const target = e.target as HTMLInputElement;
       if (target.files?.length) {
-        this.selectedFile = target.files[0];
+        const file = target.files[0];
+        this.selectedFile = file;
+        this.startFileProcessing(file);
+      }
+    },
+    async startFileProcessing(file: File) {
+      try {
+        this.isLoading = true;
+        this.parsedFileContent = await this.parseFile(file);
+        // File is now parsed but we don't add it to the messages yet
+        // That will happen when the user clicks send
+      } catch (error) {
+        console.error('Error pre-parsing file:', error);
+        alert('There was an error processing your file. Please try again.');
+        this.selectedFile = null;
+        this.parsedFileContent = '';
+      } finally {
+        this.isLoading = false;
       }
     }
   }
@@ -150,10 +188,14 @@ export default {
          @dragover.prevent
          @drop="handleDrop">
       <div class="card-body p-4">
-        <div v-if="selectedFile" class="alert alert-info mb-2 py-2">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <span>{{ selectedFile.name }}</span>
-          <button class="btn btn-circle btn-ghost btn-xs" @click="selectedFile = null">✕</button>
+        <div v-if="selectedFile" class="alert mb-2 py-2" :class="{'alert-info': !parsedFileContent, 'alert-success': parsedFileContent}">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+            <path v-if="parsedFileContent" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span>{{ selectedFile.name }} <span v-if="parsedFileContent" class="text-xs">(parsed)</span></span>
+          <div v-if="isLoading" class="loading loading-spinner loading-xs ml-2"></div>
+          <button class="btn btn-circle btn-ghost btn-xs" @click="selectedFile = null; parsedFileContent = ''">✕</button>
         </div>
         
         <textarea
