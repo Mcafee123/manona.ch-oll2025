@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-const apiUrl = window.__RUNTIME_CONFIG__?.VITE_API_BASE || "https://api.manona.ch";
+const apiUrl = import.meta.env.VITE_API_BASE || "https://api.manona.ch";
 
 export default {
   name: "ChatInterface",
@@ -171,10 +171,10 @@ export default {
     },
 
     async finalizeReport() {
-      if (this.uploadedFiles.length === 0) {
-        alert("Please upload at least one PDF file before generating a report.");
-        return;
-      }
+      // if (this.uploadedFiles.length === 0) {
+      //   alert("Please upload at least one PDF file before generating a report.");
+      //   return;
+      // }
 
       try {
         this.isGeneratingReport = true;
@@ -413,7 +413,7 @@ export default {
             <button
               class="btn btn-outline btn-info"
               @click="finalizeReport"
-              :disabled="isGeneratingReport || uploadedFiles.length === 0"
+              :disabled="isGeneratingReport"
             >
               <span v-if="isGeneratingReport" class="loading loading-spinner"></span>
               <span v-else>Finalize Report</span>

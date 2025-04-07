@@ -260,6 +260,7 @@ def create_cover_page(title, content, merger):
                         return text
                     
                     for line in lines:
+                        # Check if a line starts with a role indicator
                         if line.startswith("Client:") or line.startswith("Legal Assistant:"):
                             # If we have accumulated text from a previous role, add it
                             if current_role and message_text:
@@ -270,15 +271,10 @@ def create_cover_page(title, content, merger):
                                 # Safe role name
                                 safe_role = html.escape(current_role)
                                 
-                                if current_role.startswith("Client"):
-                                    # Style for client messages
-                                    elements.append(Paragraph(f"<b>{safe_role}</b>", normal_style))
-                                    elements.append(Paragraph(msg_text, normal_style))
-                                else:
-                                    # Style for assistant messages
-                                    elements.append(Paragraph(f"<b>{safe_role}</b>", normal_style))
-                                    elements.append(Paragraph(msg_text, normal_style))
-                                
+                                # Add the role as a bold header
+                                elements.append(Paragraph(f"<b>{safe_role}</b>", normal_style))
+                                # Add the message content
+                                elements.append(Paragraph(msg_text, normal_style))
                                 elements.append(Spacer(1, 0.1*inch))
                                 message_text = []
                             
@@ -298,12 +294,10 @@ def create_cover_page(title, content, merger):
                         # Safe role name
                         safe_role = html.escape(current_role)
                         
-                        if current_role.startswith("Client"):
-                            elements.append(Paragraph(f"<b>{safe_role}</b>", normal_style))
-                            elements.append(Paragraph(msg_text, normal_style))
-                        else:
-                            elements.append(Paragraph(f"<b>{safe_role}</b>", normal_style))
-                            elements.append(Paragraph(msg_text, normal_style))
+                        # Add the role as a bold header
+                        elements.append(Paragraph(f"<b>{safe_role}</b>", normal_style))
+                        # Add the message content
+                        elements.append(Paragraph(msg_text, normal_style))
                 else:
                     # Default handling for other sections (with safe escaping)
                     combined_text = " ".join(lines)
@@ -594,8 +588,14 @@ ATTACHED DOCUMENTS:
 {"".join(f"{i}. {pdf_file.filename}\n" for i, pdf_file in enumerate(request.pdf_files, 1))}
 
 CONVERSATION HISTORY:
-{"".join(f"{'Client' if msg.role == 'user' else 'Legal Assistant'}: {msg.content}\n\n" for msg in request.messages)}
 """
+        # Add each message with proper formatting and ensure line breaks are preserved
+        for msg in request.messages:
+            role_display = "Client" if msg.role == "user" else "Legal Assistant"
+            # Add the role as a prefix
+            cover_content += f"{role_display}:\n"
+            # Add the message content with preserved line breaks
+            cover_content += f"{msg.content}\n\n"
         
         # Log the cover content for debugging
         logger.info(f"Cover page content: {cover_content[:500]}...")
@@ -767,11 +767,11 @@ async def finalize_report_form(
         try:
             # Create a prompt for summarization
             summary_prompt = f"""
-            You are a legal document summarizer. You need to summarize a conversation between a client and an assistant.
-            Create a professional, concise summary of the main issues, questions, and advice given in this conversation.
-            Focus on identifying the legal matter type and key legal points mentioned.
+            Du bist ein juristischer Dokumentenzusammenfasser. Du sollst ein Gespräch zwischen einem Mandanten und einem Assistenten zusammenfassen.
+            Erstelle eine professionelle, prägnante Zusammenfassung der Hauptthemen, Fragen und gegebenen Ratschläge in diesem Gespräch.
+            Konzentriere dich darauf, die Art des rechtlichen Falls und die wichtigsten rechtlichen Punkte zu identifizieren.
             
-            Be factual, objective, and avoid speculation. Keep your summary to 2-4 sentences.
+            Sei sachlich, objektiv und vermeide Spekulationen. Halte deine Zusammenfassung auf 2-4 Sätze beschränkt.
             """
             
             # Convert message history to a format suitable for the summary agent
@@ -828,8 +828,14 @@ ATTACHED DOCUMENTS:
 {"".join(f"{i}. {file.filename}\n" for i, file in enumerate(files, 1))}
 
 CONVERSATION HISTORY:
-{"".join(f"{'Client' if msg.role == 'user' else 'Legal Assistant'}: {msg.content}\n\n" for msg in parsed_messages)}
 """
+        # Add each message with proper formatting and ensure line breaks are preserved
+        for msg in parsed_messages:
+            role_display = "Client" if msg.role == "user" else "Legal Assistant"
+            # Add the role as a prefix
+            cover_content += f"{role_display}:\n"
+            # Add the message content with preserved line breaks
+            cover_content += f"{msg.content}\n\n"
         
         # Log the cover content for debugging
         logger.info(f"Cover page content: {cover_content[:500]}...")
