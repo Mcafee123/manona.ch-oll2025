@@ -292,50 +292,106 @@ async def finalize_report(request: FinalizeReportRequest, api_key: str = Depends
         # Create a PDF merger object
         merger = PyPDF2.PdfMerger()
         
-        # Generate a summary of the conversation
-        summary = "Chat Summary:\n"
-        for msg in request.messages:
-            if msg.role == "user":
-                summary += f"- User: {msg.content[:100]}...\n"
-            elif msg.role == "assistant":
-                summary += f"- Assistant: {msg.content[:100]}...\n"
-                
+        # Generate a more meaningful summary using the AI model
+        try:
+            # Create a prompt for summarization
+            summary_prompt = f"""
+            You are a legal document summarizer. You need to summarize a conversation between a client and an assistant.
+            Create a professional, concise summary of the main issues, questions, and advice given in this conversation.
+            Focus on identifying the legal matter type and key legal points mentioned.
+            
+            Be factual, objective, and avoid speculation. Keep your summary to 2-4 sentences.
+            """
+            
+            # Convert message history to a format suitable for the summary agent
+            formatted_messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+            
+            # Add the summary prompt as a system message
+            prompt_message = {"role": "system", "content": summary_prompt}
+            summary_messages = [prompt_message] + formatted_messages
+            
+            # Use the OpenAI model to generate a summary
+            from openai import AsyncOpenAI
+            
+            # Create client with API key from environment or default configuration
+            client = AsyncOpenAI()
+            
+            # Generate summary
+            summary_response = await client.chat.completions.create(
+                model=modelname,  # Using the same model defined earlier in the file
+                messages=summary_messages,
+                max_tokens=350
+            )
+            
+            # Extract the summary
+            ai_summary = summary_response.choices[0].message.content.strip()
+            logger.info(f"Generated AI summary: {ai_summary}")
+            
+        except Exception as e:
+            logger.error(f"Error generating AI summary: {str(e)}")
+            # Fallback to a basic summary if AI generation fails
+            ai_summary = "Unable to generate AI summary. This report contains a conversation related to legal matters."
+        
+        # Create a formatted message history
+        message_history = "Full Conversation:\n\n"
+        for i, msg in enumerate(request.messages, 1):
+            role_display = "Client" if msg.role == "user" else "Legal Assistant"
+            message_history += f"{i}. {role_display}:\n{msg.content}\n\n"
+        
         # Create a list of attached documents
         attached_docs = "Attached Documents:\n"
         for i, pdf_file in enumerate(request.pdf_files, 1):
             attached_docs += f"{i}. {pdf_file.filename}\n"
-            
+        
         # Set the title
-        report_title = request.title or "Combined Legal Documents"
+        report_title = request.title or "Legal Case Documents"
         
-        # We need to create a simple first page with the summary
-        # For now, we'll create a text file with the summary and convert it to PDF
-        # using an external tool or another PDF library in a real implementation
+        # Format the cover page content
+        cover_content = f"""
+{report_title}
+
+CASE SUMMARY:
+{ai_summary}
+
+ATTACHED DOCUMENTS:
+{"".join(f"{i}. {pdf_file.filename}\n" for i, pdf_file in enumerate(request.pdf_files, 1))}
+
+CONVERSATION HISTORY:
+{"".join(f"{'Client' if msg.role == 'user' else 'Legal Assistant'}: {msg.content}\n\n" for msg in request.messages)}
+"""
         
-        # For this implementation, we'll create a simple PDF directly
-        cover_page_content = f"""
-        {report_title}
+        # Log the cover content for debugging
+        logger.info(f"Cover page content: {cover_content[:500]}...")
         
-        {summary}
+        # Create a temporary text file
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as temp_text:
+            temp_text.write(cover_content.encode('utf-8'))
+            temp_text_path = temp_text.name
         
-        {attached_docs}
-        """
-        
-        # Create a temporary first page PDF using PyPDF2
-        cover_writer = PyPDF2.PdfWriter()
-        # Add a blank page - in a real implementation we would write text to this
-        cover_writer.add_blank_page(width=612, height=792)  # US Letter size
-        
-        # Write the cover page to a stream
-        cover_stream = io.BytesIO()
-        cover_writer.write(cover_stream)
-        cover_stream.seek(0)
-        
-        # Add the cover page as the first page in the merged document
-        merger.append(cover_stream)
-        
-        # For now, log the cover page content that would be included
-        logger.info(f"Cover page content: {cover_page_content}")
+        try:
+            # Create a simple PDF with the cover content as plain text
+            # Add a blank page that we'll use as a placeholder
+            cover_writer = PyPDF2.PdfWriter()
+            cover_writer.add_blank_page(width=612, height=792)  # US Letter size
+            
+            # Save cover page to a BytesIO object
+            cover_stream = io.BytesIO()
+            cover_writer.write(cover_stream)
+            cover_stream.seek(0)
+            
+            # Add the cover page as the first page in the merged document
+            merger.append(cover_stream)
+            
+            # Log that we've added the cover page
+            logger.info("Added cover page to PDF")
+            
+            # Also write the cover content to a separate text file for manual reference
+            with open("cover_page_content.txt", "w", encoding="utf-8") as cover_file:
+                cover_file.write(cover_content)
+                logger.info("Saved cover page content to cover_page_content.txt for reference")
+        finally:
+            # Clean up the temporary text file
+            os.unlink(temp_text_path)
         
         # Add all PDF files in the order they were provided
         for pdf_file in request.pdf_files:
@@ -462,42 +518,106 @@ async def finalize_report_form(
         # Create a PDF merger object
         merger = PyPDF2.PdfMerger()
         
-        # Generate a summary of the conversation
-        summary = "Chat Summary:\n"
-        for msg in parsed_messages:
-            if msg.role == "user":
-                summary += f"- User: {msg.content[:100]}...\n"
-            elif msg.role == "assistant":
-                summary += f"- Assistant: {msg.content[:100]}...\n"
-                
+        # Generate a more meaningful summary using the AI model
+        try:
+            # Create a prompt for summarization
+            summary_prompt = f"""
+            You are a legal document summarizer. You need to summarize a conversation between a client and an assistant.
+            Create a professional, concise summary of the main issues, questions, and advice given in this conversation.
+            Focus on identifying the legal matter type and key legal points mentioned.
+            
+            Be factual, objective, and avoid speculation. Keep your summary to 2-4 sentences.
+            """
+            
+            # Convert message history to a format suitable for the summary agent
+            formatted_messages = [{"role": msg.role, "content": msg.content} for msg in parsed_messages]
+            
+            # Add the summary prompt as a system message
+            prompt_message = {"role": "system", "content": summary_prompt}
+            summary_messages = [prompt_message] + formatted_messages
+            
+            # Use the OpenAI model to generate a summary
+            from openai import AsyncOpenAI
+            
+            # Create client with API key from environment or default configuration
+            client = AsyncOpenAI()
+            
+            # Generate summary
+            summary_response = await client.chat.completions.create(
+                model=modelname,  # Using the same model defined earlier in the file
+                messages=summary_messages,
+                max_tokens=350
+            )
+            
+            # Extract the summary
+            ai_summary = summary_response.choices[0].message.content.strip()
+            logger.info(f"Generated AI summary: {ai_summary}")
+            
+        except Exception as e:
+            logger.error(f"Error generating AI summary: {str(e)}")
+            # Fallback to a basic summary if AI generation fails
+            ai_summary = "Unable to generate AI summary. This report contains a conversation related to legal matters."
+        
+        # Create a formatted message history
+        message_history = "Full Conversation:\n\n"
+        for i, msg in enumerate(parsed_messages, 1):
+            role_display = "Client" if msg.role == "user" else "Legal Assistant"
+            message_history += f"{i}. {role_display}:\n{msg.content}\n\n"
+        
         # Create a list of attached documents
         attached_docs = "Attached Documents:\n"
         for i, file in enumerate(files, 1):
             attached_docs += f"{i}. {file.filename}\n"
-            
+        
         # Set the title
-        report_title = title or "Combined Legal Documents"
+        report_title = title or "Legal Case Documents"
         
-        # Create a simple first page with the summary
-        cover_page_content = f"""
-        {report_title}
+        # Format the cover page content
+        cover_content = f"""
+{report_title}
+
+CASE SUMMARY:
+{ai_summary}
+
+ATTACHED DOCUMENTS:
+{"".join(f"{i}. {file.filename}\n" for i, file in enumerate(files, 1))}
+
+CONVERSATION HISTORY:
+{"".join(f"{'Client' if msg.role == 'user' else 'Legal Assistant'}: {msg.content}\n\n" for msg in parsed_messages)}
+"""
         
-        {summary}
+        # Log the cover content for debugging
+        logger.info(f"Cover page content: {cover_content[:500]}...")
         
-        {attached_docs}
-        """
+        # Create a temporary text file
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as temp_text:
+            temp_text.write(cover_content.encode('utf-8'))
+            temp_text_path = temp_text.name
         
-        # Create a temporary first page PDF
-        cover_writer = PyPDF2.PdfWriter()
-        cover_writer.add_blank_page(width=612, height=792)  # US Letter size
-        
-        # Write the cover page to a stream
-        cover_stream = io.BytesIO()
-        cover_writer.write(cover_stream)
-        cover_stream.seek(0)
-        
-        # Add the cover page as the first page in the merged document
-        merger.append(cover_stream)
+        try:
+            # Create a simple PDF with the cover content as plain text
+            # Add a blank page that we'll use as a placeholder
+            cover_writer = PyPDF2.PdfWriter()
+            cover_writer.add_blank_page(width=612, height=792)  # US Letter size
+            
+            # Save cover page to a BytesIO object
+            cover_stream = io.BytesIO()
+            cover_writer.write(cover_stream)
+            cover_stream.seek(0)
+            
+            # Add the cover page as the first page in the merged document
+            merger.append(cover_stream)
+            
+            # Log that we've added the cover page
+            logger.info("Added cover page to PDF")
+            
+            # Also write the cover content to a separate text file for manual reference
+            with open("cover_page_content.txt", "w", encoding="utf-8") as cover_file:
+                cover_file.write(cover_content)
+                logger.info("Saved cover page content to cover_page_content.txt for reference")
+        finally:
+            # Clean up the temporary text file
+            os.unlink(temp_text_path)
         
         # Add all PDF files in the order they were provided
         for file in files:

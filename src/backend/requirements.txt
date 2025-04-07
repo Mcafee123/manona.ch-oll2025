@@ -3,6 +3,7 @@ requests
 gunicorn
 fastapi
 openai-agents
+openai
 asyncio
 unstructured
 unstructured[pdf]
