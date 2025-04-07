@@ -75,71 +75,112 @@ def load_prompt(filename: str, default: str) -> str:
     """
     txtfile = filename + ".txt"
     mdfile = filename + ".md"
+    
+    logger.info(f"Attempting to load prompt from {filename} (trying MD then TXT)")
+    
     try:
         with open(mdfile, "r", encoding="utf-8") as file:
-            logger.info(f"Loaded prompt from {mdfile}")
-            return file.read().strip()
+            content = file.read().strip()
+            logger.info(f"Successfully loaded prompt from {mdfile}")
+            logger.info(f"===== PROMPT FROM {mdfile} - BEGIN =====")
+            logger.info(content)
+            logger.info(f"===== PROMPT FROM {mdfile} - END =====")
+            return content
     except FileNotFoundError:
-        logger.warning(f"{mdfile} not found. Using {txtfile}.")
+        logger.warning(f"{mdfile} not found. Trying {txtfile}.")
         try:
             with open(txtfile, "r", encoding="utf-8") as file:
-                logger.info(f"Loaded prompt from {txtfile}")
-                return file.read().strip()
+                content = file.read().strip()
+                logger.info(f"Successfully loaded prompt from {txtfile}")
+                logger.info(f"===== PROMPT FROM {txtfile} - BEGIN =====")
+                logger.info(content)
+                logger.info(f"===== PROMPT FROM {txtfile} - END =====")
+                return content
         except FileNotFoundError:
-            logger.warning(f"{filename} not found. Using hardcoded prompt as fallback.")
+            logger.warning(f"Both {mdfile} and {txtfile} not found. Using hardcoded prompt as fallback.")
+            logger.info(f"===== DEFAULT PROMPT - BEGIN =====")
+            logger.info(default)
+            logger.info(f"===== DEFAULT PROMPT - END =====")
             return default
 
 
 # Load agents
 def load_agents():
-    global triage_agent, trafficlaw_agent, other_agent, summary_agent  # Declare globals
+    global triage_agent, trafficlaw_agent, other_agent, summary_agent, collection_agent  # Include collection_agent in globals
 
-    # Prompts
-    triage_prompt = load_prompt("./prompts/triage_prompt", """
+    logger.info("Starting agent loading process")
+    
+    # Prompts with full path for better debugging
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    prompt_dir = os.path.join(base_path, "prompts")
+    
+    logger.info(f"Using prompt directory: {prompt_dir}")
+    
+    # Triage prompt
+    triage_prompt_path = os.path.join(prompt_dir, "triage_prompt")
+    triage_prompt = load_prompt(triage_prompt_path, """
     Frage den Benutzer, um was es geht, und versuche den Fall dem korrekten Agenten zuzuordnen.
     Leite nur an den Agenten weiter, wenn du sicher bist, dass es sich um einen Fall handelt, der von einem Agenten bearbeitet werden kann.
     Du darfst keine Fragen beantworten.
     """)
+    logger.info(f"Loaded triage prompt with length: {len(triage_prompt)} characters")
 
-    # Agents
-    road_traffic_prompt = load_prompt("./prompts/road_traffic_prompt", """
+    # Road traffic prompt
+    road_traffic_prompt_path = os.path.join(prompt_dir, "road_traffic_prompt")
+    road_traffic_prompt = load_prompt(road_traffic_prompt_path, """
         Antworte mit "SORRY, Prompt nicht gefunden" und gib den Grund an, warum du nicht helfen kannst.
         """)
+    logger.info(f"Loaded road traffic prompt with length: {len(road_traffic_prompt)} characters")
     
+    # Create road traffic agent
+    logger.info("Creating Road Traffic Law agent")
     trafficlaw_agent = Agent(
         name="Road Traffic Law agent (Speeding)",
         instructions=road_traffic_prompt,
         model=modelname
     )
     
-    debt_collection_prompt = load_prompt("./prompts/betreibung_prompt", """
+    # Debt collection prompt
+    debt_collection_prompt_path = os.path.join(prompt_dir, "betreibung_prompt")
+    debt_collection_prompt = load_prompt(debt_collection_prompt_path, """
         Antworte mit "SORRY, Prompt nicht gefunden" und gib den Grund an, warum du nicht helfen kannst.
         """)
+    logger.info(f"Loaded debt collection prompt with length: {len(debt_collection_prompt)} characters")
     
+    # Create debt collection agent
+    logger.info("Creating Debt Collection agent")
     collection_agent = Agent(
         name="Debt collection agent",
         instructions=debt_collection_prompt,
         model=modelname
     )
 
+    # Create other agent with hardcoded instructions
+    logger.info("Creating Other Legal Field agent")
     other_agent = Agent(
-        name="Other legal field agent (MISC))",
+        name="Other legal field agent (MISC)",
         instructions="You always respond with 'Sorry, I can only help with Road Traffic Law.'",
         model=modelname
     )
 
+    # Create summary agent with hardcoded instructions
+    logger.info("Creating Summary agent")
     summary_agent = Agent(
         name="Summary agent",
         instructions="Wenn alle Informationen vorliegen, fasse die Informationen zusammen und gib sie zurück und bedanke dich beim Benutzer für die Informationen. Wir werden die Daten nun an die/den zuständige/n Anwätin/Anwalt weiterleiten.",
         model=modelname
     )
     
+    # Create triage agent with all handoffs
+    logger.info("Creating Triage agent with handoffs to other agents")
     triage_agent = Agent(
         name="Triage agent",
         instructions=triage_prompt,
         handoffs=[other_agent, trafficlaw_agent, collection_agent, summary_agent],
         model=modelname
     )
+    
+    logger.info("All agents loaded successfully")
     
 # Load agents
 load_agents()
@@ -369,9 +410,110 @@ def create_cover_page(title, content, merger):
 async def main(message_history: List[Message]):
     # Convert Message objects to dictionaries
     formatted_messages = [{"role": msg.role, "content": msg.content} for msg in message_history]
-    result = await Runner.run(triage_agent, input=formatted_messages)
-    logger.info(result.final_output)
-    return result.final_output
+    
+    logger.info("=" * 80)
+    logger.info("STARTING NEW AGENT EXECUTION SESSION")
+    logger.info("=" * 80)
+    logger.info(f"Message history contains {len(formatted_messages)} messages")
+    
+    # Log the first few messages for context
+    if formatted_messages:
+        logger.info("First message content:")
+        first_msg = formatted_messages[0]
+        logger.info(f"Role: {first_msg['role']}")
+        logger.info(f"Content: {first_msg['content'][:200]}...")
+    
+    logger.info("-" * 80)
+    logger.info("AGENT CONFIGURATION")
+    logger.info("-" * 80)
+    logger.info(f"Triage agent name: {triage_agent.name}")
+    logger.info(f"Triage agent model: {triage_agent.model}")
+    logger.info(f"Triage agent has {len(triage_agent.handoffs)} handoffs")
+    
+    # Log handoff agents
+    logger.info("-" * 80)
+    logger.info("HANDOFF AGENTS AVAILABLE")
+    logger.info("-" * 80)
+    for i, handoff_agent in enumerate(triage_agent.handoffs):
+        logger.info(f"Handoff agent {i+1}: {handoff_agent.name}")
+        logger.info(f"Model: {handoff_agent.model}")
+        
+        # Get the actual full instructions for each agent
+        agent_instructions = handoff_agent.instructions
+        logger.info(f"===== AGENT {handoff_agent.name} INSTRUCTIONS - BEGIN =====")
+        logger.info(agent_instructions)
+        logger.info(f"===== AGENT {handoff_agent.name} INSTRUCTIONS - END =====")
+    
+    # Run the agent
+    logger.info("-" * 80)
+    logger.info("EXECUTING AGENT")
+    logger.info("-" * 80)
+    logger.info(f"Running triage agent with {len(formatted_messages)} messages")
+    
+    try:
+        # Use the Runner to execute the agent
+        result = await Runner.run(triage_agent, input=formatted_messages)
+        
+        # Log the result details
+        logger.info("-" * 80)
+        logger.info("AGENT EXECUTION COMPLETED")
+        logger.info("-" * 80)
+        logger.info(f"Final output length: {len(result.final_output)}")
+        
+        # Extract full agent trace if available
+        if hasattr(result, 'trace') and result.trace:
+            logger.info("-" * 80)
+            logger.info("AGENT EXECUTION TRACE")
+            logger.info("-" * 80)
+            try:
+                logger.info(f"Trace contains {len(result.trace)} events")
+                for i, event in enumerate(result.trace):
+                    event_type = event.get('type', 'unknown')
+                    logger.info(f"Trace event {i+1}: {event_type}")
+                    
+                    # Log special events in more detail
+                    if event_type == 'handoff':
+                        from_agent = event.get('from_agent', 'Unknown')
+                        to_agent = event.get('to_agent', 'Unknown')
+                        logger.info(f"HANDOFF: {from_agent} -> {to_agent}")
+            except Exception as trace_err:
+                logger.error(f"Error processing trace: {str(trace_err)}")
+        
+        # Check if a handoff occurred and log details
+        if hasattr(result, 'handoff_history') and result.handoff_history:
+            logger.info("-" * 80)
+            logger.info("HANDOFF HISTORY DETECTED")
+            logger.info("-" * 80)
+            
+            for i, handoff in enumerate(result.handoff_history):
+                from_agent = handoff.get('from_agent', 'Unknown')
+                to_agent = handoff.get('to_agent', 'Unknown')
+                reason = handoff.get('reason', 'No reason provided')
+                
+                logger.info(f"Handoff {i+1}: {from_agent} -> {to_agent}")
+                logger.info(f"Reason: {reason}")
+                
+                # Try to identify which agent in our list was used
+                for agent in triage_agent.handoffs:
+                    if agent.name == to_agent:
+                        logger.info(f"Matched to configured agent: {agent.name}")
+                        logger.info(f"Using instructions starting with: {agent.instructions[:100]}...")
+        else:
+            logger.info("No handoffs occurred during this execution")
+        
+        # Log the full final output
+        logger.info("-" * 80)
+        logger.info("FINAL AGENT OUTPUT")
+        logger.info("-" * 80)
+        logger.info(result.final_output)
+        logger.info("-" * 80)
+        
+        return result.final_output
+        
+    except Exception as e:
+        logger.error(f"Error running agent: {str(e)}")
+        # Return a simple error message to the user
+        return "Sorry, there was an error processing your request. Please try again."
 
 # Load environment variables from .env file
 load_dotenv()
@@ -440,10 +582,110 @@ async def agent_endpoint(
 
 @app.post("/reload-prompts")
 async def reload_prompts(api_key: str = Depends(get_api_key)):
-    # Reload agents
-    load_agents()
+    logger.info("Reload prompts endpoint called")
+    
+    # Check prompt files exist before reloading
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    prompt_dir = os.path.join(base_path, "prompts")
+    
+    logger.info(f"Checking prompt files in directory: {prompt_dir}")
+    
+    # List all prompt files for debugging
+    try:
+        prompt_files = os.listdir(prompt_dir)
+        logger.info(f"Found prompt files: {prompt_files}")
+    except Exception as e:
+        logger.error(f"Error listing prompt directory: {str(e)}")
+        prompt_files = []
+    
+    # Check for specific prompt files
+    for prompt_name in ["triage_prompt", "road_traffic_prompt", "betreibung_prompt"]:
+        txt_path = os.path.join(prompt_dir, f"{prompt_name}.txt")
+        md_path = os.path.join(prompt_dir, f"{prompt_name}.md")
+        
+        txt_exists = os.path.exists(txt_path)
+        md_exists = os.path.exists(md_path)
+        
+        logger.info(f"Prompt {prompt_name}: TXT exists: {txt_exists}, MD exists: {md_exists}")
+    
+    # Reload the agents with the current prompt files
+    try:
+        logger.info("Calling load_agents() to reload all agents")
+        load_agents()
+        logger.info("Agents reloaded successfully")
+        return {"message": "Prompts reloaded successfully", "found_files": prompt_files}
+    except Exception as e:
+        logger.error(f"Error reloading agents: {str(e)}")
+        return {"message": f"Error reloading prompts: {str(e)}", "found_files": prompt_files}
 
-    return {"message": "Prompts reloaded successfully"}
+@app.get("/debug-agents")
+async def debug_agents(api_key: str = Depends(get_api_key)):
+    """
+    Debug endpoint to get information about all loaded agents and their prompts.
+    """
+    logger.info("Debug agents endpoint called")
+    
+    debug_info = {
+        "agents": []
+    }
+    
+    # Check prompt files exist
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    prompt_dir = os.path.join(base_path, "prompts")
+    
+    try:
+        prompt_files = os.listdir(prompt_dir)
+        debug_info["prompt_files"] = prompt_files
+    except Exception as e:
+        logger.error(f"Error listing prompt directory: {str(e)}")
+        debug_info["prompt_files_error"] = str(e)
+    
+    # Add information about triage agent
+    if triage_agent:
+        triage_info = {
+            "name": triage_agent.name,
+            "model": triage_agent.model,
+            "instruction_length": len(triage_agent.instructions),
+            "instruction_preview": triage_agent.instructions[:200],
+            "handoffs": []
+        }
+        
+        # Add handoff information
+        if hasattr(triage_agent, 'handoffs'):
+            for handoff_agent in triage_agent.handoffs:
+                handoff_info = {
+                    "name": handoff_agent.name,
+                    "model": handoff_agent.model,
+                    "instruction_length": len(handoff_agent.instructions),
+                    "instruction_preview": handoff_agent.instructions[:200]
+                }
+                triage_info["handoffs"].append(handoff_info)
+        
+        debug_info["agents"].append(triage_info)
+    
+    # Add information for other specific agents
+    for agent_name, agent in [
+        ("trafficlaw_agent", trafficlaw_agent), 
+        ("collection_agent", collection_agent), 
+        ("other_agent", other_agent),
+        ("summary_agent", summary_agent)
+    ]:
+        if agent:
+            agent_info = {
+                "name": agent.name,
+                "model": agent.model,
+                "instruction_length": len(agent.instructions),
+                "instruction_preview": agent.instructions[:200]
+            }
+            debug_info["agents"].append(agent_info)
+    
+    # Log the debug info
+    logger.info("Agent debug information:")
+    for agent_info in debug_info["agents"]:
+        logger.info(f"Agent: {agent_info['name']}")
+        logger.info(f"Instructions preview: {agent_info['instruction_preview']}")
+    
+    return debug_info
 
 @app.post("/parse-document")
 async def parse_document(
