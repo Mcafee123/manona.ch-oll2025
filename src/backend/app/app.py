@@ -23,7 +23,7 @@ class Message(BaseModel):
 
 class PDFFile(BaseModel):
     filename: str
-    content: str
+    content: str  # Base64 encoded PDF content (will be decoded before processing)
 
 class FinalizeReportRequest(BaseModel):
     messages: List[Message]
@@ -281,6 +281,14 @@ async def finalize_report(request: FinalizeReportRequest, api_key: str = Depends
     - A combined PDF document
     """
     try:
+        # Validate that PDF content is not empty
+        for pdf_file in request.pdf_files:
+            if not pdf_file.content:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"PDF file {pdf_file.filename} has empty content"
+                )
+            logger.info(f"PDF file {pdf_file.filename} content length: {len(pdf_file.content)}")
         # Create a PDF merger object
         merger = PyPDF2.PdfMerger()
         
@@ -326,20 +334,73 @@ async def finalize_report(request: FinalizeReportRequest, api_key: str = Depends
         # Add the cover page as the first page in the merged document
         merger.append(cover_stream)
         
+        # For now, log the cover page content that would be included
+        logger.info(f"Cover page content: {cover_page_content}")
+        
         # Add all PDF files in the order they were provided
         for pdf_file in request.pdf_files:
             try:
                 # Create a temporary file for each PDF
                 with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf:
-                    # Write the content to the temporary file
-                    temp_pdf.write(pdf_file.content.encode('utf-8') if isinstance(pdf_file.content, str) else pdf_file.content)
-                    temp_pdf_path = temp_pdf.name
+                    # PDF files should be binary data, not text
+                    # Check if content is base64 encoded and decode if needed
+                    import base64
+                    try:
+                        # Try to decode if it's base64 encoded
+                        if isinstance(pdf_file.content, str):
+                            try:
+                                pdf_content = base64.b64decode(pdf_file.content)
+                            except base64.binascii.Error:
+                                logger.error(f"Invalid base64 content in {pdf_file.filename}")
+                                raise ValueError(f"Invalid PDF content: {pdf_file.filename} contains invalid base64 data")
+                        else:
+                            pdf_content = pdf_file.content
+                        
+                        # Write the binary content to the temporary file
+                        temp_pdf.write(pdf_content)
+                        temp_pdf_path = temp_pdf.name
+                        logger.info(f"Successfully wrote PDF file {pdf_file.filename} to temporary file")
+                    except Exception as e:
+                        logger.error(f"Error processing PDF content for {pdf_file.filename}: {str(e)}")
+                        raise
                 
-                # Open the PDF and add it to the merger
+                # Validate that the PDF is readable before adding it to the merger
                 try:
+                    # Try to read the PDF to make sure it's valid
+                    with open(temp_pdf_path, "rb") as test_pdf:
+                        reader = PyPDF2.PdfReader(test_pdf)
+                        # Check if PDF has pages
+                        if len(reader.pages) == 0:
+                            logger.warning(f"PDF file {pdf_file.filename} has 0 pages")
+                        else:
+                            logger.info(f"PDF file {pdf_file.filename} has {len(reader.pages)} pages")
+                    
+                    # If we got here, the PDF is valid, so add it to the merger
                     merger.append(temp_pdf_path)
                 except PyPDF2.errors.PdfReadError as e:
-                    logger.warning(f"Skipping corrupted PDF file {pdf_file.filename}: {str(e)}")
+                    logger.warning(f"Attempting to repair corrupted PDF file {pdf_file.filename}: {str(e)}")
+                    try:
+                        # Attempt to repair the corrupted PDF
+                        repaired_pdf = io.BytesIO()
+                        with open(temp_pdf_path, "rb") as corrupted_file:
+                            reader = PyPDF2.PdfReader(corrupted_file)
+                            writer = PyPDF2.PdfWriter()
+                            for page in reader.pages:
+                                writer.add_page(page)
+                            writer.write(repaired_pdf)
+                        repaired_pdf.seek(0)
+                        merger.append(repaired_pdf)
+                        logger.info(f"Successfully repaired and included {pdf_file.filename}")
+                    except Exception as repair_error:
+                        logger.error(f"Failed to repair PDF file {pdf_file.filename}: {str(repair_error)}")
+                        # Add a placeholder page indicating the file could not be processed
+                        placeholder_writer = PyPDF2.PdfWriter()
+                        placeholder_writer.add_blank_page(width=612, height=792)  # US Letter size
+                        placeholder_stream = io.BytesIO()
+                        placeholder_writer.write(placeholder_stream)
+                        placeholder_stream.seek(0)
+                        merger.append(placeholder_stream)
+                        logger.warning(f"Added placeholder for {pdf_file.filename}")
                 finally:
                     # Make sure to clean up each temporary file
                     os.unlink(temp_pdf_path)
@@ -444,14 +505,40 @@ async def finalize_report_form(
                 # Read the file content
                 content = await file.read()
                 
+                # Validate PDF content is not empty
+                if not content:
+                    raise ValueError(f"PDF file {file.filename} has empty content")
+                
+                logger.info(f"PDF file {file.filename} content length: {len(content)}")
+                
                 # Create a temporary file
                 with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf:
                     temp_pdf.write(content)
                     temp_pdf_path = temp_pdf.name
+                    logger.info(f"Successfully wrote PDF file {file.filename} to temporary file")
                 
-                # Add the PDF to the merger
+                # Validate that the PDF is readable before adding it to the merger
                 try:
+                    # Try to read the PDF to make sure it's valid
+                    with open(temp_pdf_path, "rb") as test_pdf:
+                        reader = PyPDF2.PdfReader(test_pdf)
+                        # Check if PDF has pages
+                        if len(reader.pages) == 0:
+                            logger.warning(f"PDF file {file.filename} has 0 pages")
+                        else:
+                            logger.info(f"PDF file {file.filename} has {len(reader.pages)} pages")
+                    
+                    # If we got here, the PDF is valid, so add it to the merger
                     merger.append(temp_pdf_path)
+                except PyPDF2.errors.PdfReadError as e:
+                    logger.warning(f"PDF read error for file {file.filename}: {str(e)}")
+                    placeholder_writer = PyPDF2.PdfWriter()
+                    placeholder_writer.add_blank_page(width=612, height=792)  # US Letter size
+                    placeholder_stream = io.BytesIO()
+                    placeholder_writer.write(placeholder_stream)
+                    placeholder_stream.seek(0)
+                    merger.append(placeholder_stream)
+                    logger.warning(f"Added placeholder for {file.filename}")
                 finally:
                     # Clean up the temporary file
                     os.unlink(temp_pdf_path)
