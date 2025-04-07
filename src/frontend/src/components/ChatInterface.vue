@@ -264,7 +264,7 @@ export default {
       </h1>
       <p>
         Diese Demo von Manona zeigt, wie ein KI-gestützter Chatbot nach rechtlich relevanten Informationen fragt.<br>
-        <b>🚨 Bitte keine sensiblen Daten einfügen. Bei deiser Demo handelt es sich um eine Hackathon-Demo. Verwendung auf eigenes Risiko.</b>
+        <b>🚨 Bitte keine sensiblen Daten einfügen. Bei dieser Demo handelt es sich um eine Hackathon-Demo. Verwendung auf eigenes Risiko.</b>
       </p>
       
       <!-- Uploaded files list -->
