@@ -16,7 +16,9 @@ export default {
       dragActive: false,
       selectedFile: null as File | null,
       parsedFileContent: '',
-      token: localStorage.getItem('token') || ''
+      token: localStorage.getItem('token') || '',
+      uploadedFiles: [] as File[],
+      isGeneratingReport: false
     }
   },
   mounted() {
@@ -78,7 +80,7 @@ export default {
 
         console.log('Messages:', this.messages);
         
-        const response = await axios.post("https://api.manona.ch/agent", this.messages, {
+        const response = await axios.post("http://localhost:8000/agent", this.messages, {
           headers: {
             Authorization: `Bearer ${this.token}`,
             'Content-Type': 'application/json'
@@ -136,6 +138,10 @@ export default {
       try {
         this.isLoading = true;
         this.parsedFileContent = await this.parseFile(file);
+        // Store the file for potential report generation
+        if (!this.uploadedFiles.some(f => f.name === file.name)) {
+          this.uploadedFiles.push(file);
+        }
         // File is now parsed but we don't add it to the messages yet
         // That will happen when the user clicks send
       } catch (error) {
@@ -146,6 +152,105 @@ export default {
       } finally {
         this.isLoading = false;
       }
+    },
+    
+    async finalizeReport() {
+      if (this.uploadedFiles.length === 0) {
+        alert('Please upload at least one PDF file before generating a report.');
+        return;
+      }
+      
+      try {
+        this.isGeneratingReport = true;
+        
+        // For the /finalize-report-form endpoint (multipart/form-data)
+        if (false) { // Disabled, using JSON endpoint instead
+          const formData = new FormData();
+          this.uploadedFiles.forEach((file) => {
+            formData.append('files', file);
+          });
+          // Add messages as JSON string
+          formData.append('messages', JSON.stringify(this.messages));
+          formData.append('title', 'Legal Report');
+          
+          const response = await axios.post("http://localhost:8000/finalize-report-form", formData, {
+            headers: {
+              Authorization: `Bearer ${this.token}`,
+              'Content-Type': 'multipart/form-data'
+            },
+            responseType: 'blob'
+          });
+          
+          this.handleReportDownload(response.data);
+        } 
+        // For the /finalize-report endpoint (JSON payload)
+        else {
+          // Prepare PDF file data (base64 encoding)
+          const pdfFilesData = await Promise.all(this.uploadedFiles.map(async (file) => {
+            return {
+              filename: file.name,
+              content: await this.fileToBase64(file)
+            };
+          }));
+          
+          const requestBody = {
+            messages: this.messages,
+            pdf_files: pdfFilesData,
+            title: 'Legal Report'
+          };
+          
+          const response = await axios.post("http://localhost:8000/finalize-report", requestBody, {
+            headers: {
+              Authorization: `Bearer ${this.token}`,
+              'Content-Type': 'application/json'
+            },
+            responseType: 'blob'
+          });
+          
+          this.handleReportDownload(response.data);
+        }
+        
+        // Add a message to the chat about the finalized report
+        this.messages.push({
+          role: 'user',
+          content: 'Generated final report from all uploaded documents.'
+        });
+        
+      } catch (error) {
+        console.error('Error generating final report:', error);
+        alert('There was an error generating the final report. Please try again.');
+      } finally {
+        this.isGeneratingReport = false;
+      }
+    },
+    
+    // Helper method to convert File to base64
+    fileToBase64(file: File): Promise<string> {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            // Remove data URL prefix (e.g., "data:application/pdf;base64,")
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+          } else {
+            reject(new Error('Failed to convert file to base64'));
+          }
+        };
+        reader.onerror = error => reject(error);
+      });
+    },
+    
+    // Helper method to handle report download
+    handleReportDownload(blobData: Blob) {
+      const url = window.URL.createObjectURL(new Blob([blobData]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'final_report.pdf');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   }
 }
@@ -161,6 +266,19 @@ export default {
         Diese Demo von Manona zeigt, wie ein KI-gestützter Chatbot nach rechtlich relevanten Informationen fragt.<br>
         <b>🚨 Bitte keine sensiblen Daten einfügen. Bei deiser Demo handelt es sich um eine Hackathon-Demo. Verwendung auf eigenes Risiko.</b>
       </p>
+      
+      <!-- Uploaded files list -->
+      <div v-if="uploadedFiles.length > 0" class="card bg-base-200 shadow-sm mb-4">
+        <div class="card-body p-3">
+          <h2 class="card-title text-sm">Uploaded Documents</h2>
+          <ul class="list-disc pl-5 text-sm">
+            <li v-for="(file, index) in uploadedFiles" :key="index" class="text-xs">
+              {{ file.name }}
+            </li>
+          </ul>
+        </div>
+      </div>
+      
       <div v-for="(message, index) in messages" 
            :key="index" 
            :class="[
@@ -206,17 +324,27 @@ export default {
         ></textarea>
         
         <div class="flex justify-between items-center">
-          <label class="btn btn-circle btn-ghost">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-            </svg>
-            <input
-              type="file"
-              accept=".pdf"
-              @change="handleFileSelect"
-              class="hidden"
-            >
-          </label>
+          <div class="flex gap-2">
+            <label class="btn btn-circle btn-ghost">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+              </svg>
+              <input
+                type="file"
+                accept=".pdf"
+                @change="handleFileSelect"
+                class="hidden"
+              >
+            </label>
+            
+            <button 
+              class="btn btn-outline btn-info"
+              @click="finalizeReport"
+              :disabled="isGeneratingReport || uploadedFiles.length === 0">
+              <span v-if="isGeneratingReport" class="loading loading-spinner"></span>
+              <span v-else>Finalize Report</span>
+            </button>
+          </div>
           
           <button 
             class="btn btn-primary"

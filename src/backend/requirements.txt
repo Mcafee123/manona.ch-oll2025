@@ -7,3 +7,4 @@ asyncio
 unstructured
 unstructured[pdf]
 unstructured[docx]
+PyPDF2

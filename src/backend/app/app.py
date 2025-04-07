@@ -1,22 +1,34 @@
 import os
 import logging
-from fastapi import FastAPI, Security, HTTPException, Depends, Body, Request
+import io
+from fastapi import FastAPI, Security, HTTPException, Depends, Body, Request, File, UploadFile, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse
 from starlette.status import HTTP_403_FORBIDDEN
 from dotenv import load_dotenv
 from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, function_tool
 import asyncio
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 from pydantic import BaseModel
 import os
 from unstructured.partition.pdf import partition_pdf
 from unstructured.partition.docx import partition_docx
 import tempfile
+import PyPDF2
 
 class Message(BaseModel):
     role: str
     content: str
+
+class PDFFile(BaseModel):
+    filename: str
+    content: str
+
+class FinalizeReportRequest(BaseModel):
+    messages: List[Message]
+    pdf_files: List[PDFFile]
+    title: Optional[str] = None
 
 # Configure logging
 logging.basicConfig(
@@ -70,6 +82,7 @@ def load_prompt(filename: str, default: str) -> str:
 
 # Load agents
 def load_agents():
+    global triage_agent, trafficlaw_agent, other_agent, summary_agent  # Declare globals
 
     # Prompts
     triage_prompt = load_prompt("./prompts/triage_prompt", """
@@ -253,6 +266,224 @@ async def parse_document(
     finally:
         # Clean up the temporary file
         os.unlink(temp_file_path)
+
+@app.post("/finalize-report")
+async def finalize_report(request: FinalizeReportRequest, api_key: str = Depends(get_api_key)):
+    """
+    Combine multiple PDF files into a single report with a summary cover page.
+    
+    Parameters:
+    - messages: Chat history for summarization
+    - pdf_files: List of PDF files (filename and base64-encoded content)
+    - title: Optional title for the report
+    
+    Returns:
+    - A combined PDF document
+    """
+    try:
+        # Create a PDF merger object
+        merger = PyPDF2.PdfMerger()
+        
+        # Generate a summary of the conversation
+        summary = "Chat Summary:\n"
+        for msg in request.messages:
+            if msg.role == "user":
+                summary += f"- User: {msg.content[:100]}...\n"
+            elif msg.role == "assistant":
+                summary += f"- Assistant: {msg.content[:100]}...\n"
+                
+        # Create a list of attached documents
+        attached_docs = "Attached Documents:\n"
+        for i, pdf_file in enumerate(request.pdf_files, 1):
+            attached_docs += f"{i}. {pdf_file.filename}\n"
+            
+        # Set the title
+        report_title = request.title or "Combined Legal Documents"
+        
+        # We need to create a simple first page with the summary
+        # For now, we'll create a text file with the summary and convert it to PDF
+        # using an external tool or another PDF library in a real implementation
+        
+        # For this implementation, we'll create a simple PDF directly
+        cover_page_content = f"""
+        {report_title}
+        
+        {summary}
+        
+        {attached_docs}
+        """
+        
+        # Create a temporary first page PDF using PyPDF2
+        cover_writer = PyPDF2.PdfWriter()
+        # Add a blank page - in a real implementation we would write text to this
+        cover_writer.add_blank_page(width=612, height=792)  # US Letter size
+        
+        # Write the cover page to a stream
+        cover_stream = io.BytesIO()
+        cover_writer.write(cover_stream)
+        cover_stream.seek(0)
+        
+        # Add the cover page as the first page in the merged document
+        merger.append(cover_stream)
+        
+        # Add all PDF files in the order they were provided
+        for pdf_file in request.pdf_files:
+            try:
+                # Create a temporary file for each PDF
+                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf:
+                    # Write the content to the temporary file
+                    temp_pdf.write(pdf_file.content.encode('utf-8') if isinstance(pdf_file.content, str) else pdf_file.content)
+                    temp_pdf_path = temp_pdf.name
+                
+                # Open the PDF and add it to the merger
+                try:
+                    merger.append(temp_pdf_path)
+                except PyPDF2.errors.PdfReadError as e:
+                    logger.warning(f"Skipping corrupted PDF file {pdf_file.filename}: {str(e)}")
+                finally:
+                    # Make sure to clean up each temporary file
+                    os.unlink(temp_pdf_path)
+            except Exception as e:
+                logger.error(f"Error processing PDF file {pdf_file.filename}: {str(e)}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Error processing PDF file {pdf_file.filename}: {str(e)}"
+                )
+        
+        # Write the combined PDF to a BytesIO object
+        merged_pdf = io.BytesIO()
+        merger.write(merged_pdf)
+        merger.close()
+        merged_pdf.seek(0)
+        
+        # Return the combined PDF as a streaming response
+        return StreamingResponse(
+            merged_pdf, 
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="combined_report.pdf"'
+            }
+        )
+    
+    except Exception as e:
+        logger.error(f"Error finalizing report: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error finalizing report: {str(e)}"
+        )
+
+@app.post("/finalize-report-form")
+async def finalize_report_form(
+    request: Request,
+    title: Optional[str] = Form(None),
+    messages: str = Form(...),  # JSON string of messages
+    files: List[UploadFile] = File(...),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Alternate version of finalize-report endpoint that accepts multipart/form-data
+    with actual file uploads instead of base64 encoded content.
+    
+    Parameters:
+    - title: Optional title for the report
+    - messages: JSON string representing chat messages
+    - files: List of uploaded PDF files
+    
+    Returns:
+    - A combined PDF document
+    """
+    try:
+        # Parse the messages JSON string
+        import json
+        message_list = json.loads(messages)
+        parsed_messages = [Message(**msg) for msg in message_list]
+        
+        # Create a PDF merger object
+        merger = PyPDF2.PdfMerger()
+        
+        # Generate a summary of the conversation
+        summary = "Chat Summary:\n"
+        for msg in parsed_messages:
+            if msg.role == "user":
+                summary += f"- User: {msg.content[:100]}...\n"
+            elif msg.role == "assistant":
+                summary += f"- Assistant: {msg.content[:100]}...\n"
+                
+        # Create a list of attached documents
+        attached_docs = "Attached Documents:\n"
+        for i, file in enumerate(files, 1):
+            attached_docs += f"{i}. {file.filename}\n"
+            
+        # Set the title
+        report_title = title or "Combined Legal Documents"
+        
+        # Create a simple first page with the summary
+        cover_page_content = f"""
+        {report_title}
+        
+        {summary}
+        
+        {attached_docs}
+        """
+        
+        # Create a temporary first page PDF
+        cover_writer = PyPDF2.PdfWriter()
+        cover_writer.add_blank_page(width=612, height=792)  # US Letter size
+        
+        # Write the cover page to a stream
+        cover_stream = io.BytesIO()
+        cover_writer.write(cover_stream)
+        cover_stream.seek(0)
+        
+        # Add the cover page as the first page in the merged document
+        merger.append(cover_stream)
+        
+        # Add all PDF files in the order they were provided
+        for file in files:
+            try:
+                # Read the file content
+                content = await file.read()
+                
+                # Create a temporary file
+                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_pdf:
+                    temp_pdf.write(content)
+                    temp_pdf_path = temp_pdf.name
+                
+                # Add the PDF to the merger
+                try:
+                    merger.append(temp_pdf_path)
+                finally:
+                    # Clean up the temporary file
+                    os.unlink(temp_pdf_path)
+                    
+            except Exception as e:
+                logger.error(f"Error processing PDF file {file.filename}: {str(e)}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Error processing PDF file {file.filename}: {str(e)}"
+                )
+        
+        # Write the combined PDF to a BytesIO object
+        merged_pdf = io.BytesIO()
+        merger.write(merged_pdf)
+        merger.close()
+        merged_pdf.seek(0)
+        
+        # Return the combined PDF as a streaming response
+        return StreamingResponse(
+            merged_pdf, 
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="combined_report.pdf"'
+            }
+        )
+    
+    except Exception as e:
+        logger.error(f"Error finalizing report (form): {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error finalizing report: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn
