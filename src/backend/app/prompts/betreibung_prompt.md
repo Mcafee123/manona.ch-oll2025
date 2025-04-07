@@ -1,4 +1,4 @@
-# **System Prompt (Rolleninstruktion)**
+ **System Prompt (Rolleninstruktion)**
 
 ### System Prompt
 
