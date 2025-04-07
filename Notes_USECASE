@@ -20,6 +20,14 @@
         #SubVar 1: Vorherige Administrativmassnahmen angeordnet >>> *Dokument*
         #SubVar 2: keine Administrativverfahren
         #SubVar 3: Wird das Fahrzeug beruflich benötigt? >>> *Hast du Beweise dafür?* 
+
+#Jasmin Prompts: 
+Frage 1: Persönliche Daten Bitte nennen Sie uns Ihre vollständigen Personalien, einschließlich Name, Geburtsdatum und Ihrer Führerausweisnummer. Diese Angaben sind erforderlich, um Ihren Fall zu bearbeiten.
+Frage 2: Sachverhalt Was ist genau passiert? Falls es sich um einen Blitzerfall handelt, schildern Sie bitte die Umstände. Zum Beispiel: Wurden Sie außerhalb der Geschwindigkeitsbegrenzung geblitzt oder war es ein Notfall?
+Frage 3: Dokumente zu Ihrem Fall Haben Sie ein Dokument im Zusammenhang mit diesem Fall erhalten? Falls ja, könnten Sie uns bitte mitteilen, welches der folgenden Dokumente es ist? (Bsp. Rechnung oder Busse, Strafbefehl, Vorladung)
+Frage 4: Zeitpunkt und Ort des Vorfalls Wann und wo (Straße oder genaue Lokalität) wurden Sie geblitzt? Diese Informationen helfen uns dabei, mögliche Abweichungen im Messverfahren festzustellen.
+Frage 5: Fahrzeughalter Wer ist der Halter des Fahrzeugs, das am Vorfall beteiligt war? Ich bin der Fahrzeughalter – könnten Sie uns bitte den Fahrzeugausweis zusenden? Eine andere Person – könnten Sie uns bitte den Namen und die Beziehung zu dieser Person nennen?
+Frage 6: Ihr Anliegen Was ist Ihr Anliegen in Bezug auf den Vorfall? (Möchten Sie die Strafe vielleicht anfechten (Notfall, nicht selbst gefahren etc.)? oder Möchten Sie wissen, ob Ihr Führerausweis entzogen wird?)
         
   
  
