@@ -80,7 +80,7 @@ export default {
 
         console.log('Messages:', this.messages);
         
-        const response = await axios.post("https.ch/agent", this.messages, {
+        const response = await axios.post("https://api.manona.ch/agent", this.messages, {
           headers: {
             Authorization: `Bearer ${this.token}`,
             'Content-Type': 'application/json'
