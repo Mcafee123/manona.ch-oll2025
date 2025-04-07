@@ -35,7 +35,7 @@ export default {
       formData.append('file', file);
       
       try {
-        const response = await axios.post("http://localhost:8000/parse-document", formData, {
+        const response = await axios.post("https://api.manona.ch/parse-document", formData, {
           headers: {
             Authorization: `Bearer ${this.token}`
           }
@@ -80,7 +80,7 @@ export default {
 
         console.log('Messages:', this.messages);
         
-        const response = await axios.post("http://localhost:8000/agent", this.messages, {
+        const response = await axios.post("https.ch/agent", this.messages, {
           headers: {
             Authorization: `Bearer ${this.token}`,
             'Content-Type': 'application/json'
@@ -173,7 +173,7 @@ export default {
           formData.append('messages', JSON.stringify(this.messages));
           formData.append('title', 'Legal Report');
           
-          const response = await axios.post("http://localhost:8000/finalize-report-form", formData, {
+          const response = await axios.post("https://api.manona.ch/finalize-report-form", formData, {
             headers: {
               Authorization: `Bearer ${this.token}`,
               'Content-Type': 'multipart/form-data'
@@ -199,7 +199,7 @@ export default {
             title: 'Legal Report'
           };
           
-          const response = await axios.post("http://localhost:8000/finalize-report", requestBody, {
+          const response = await axios.post("https://api.manona.ch/finalize-report", requestBody, {
             headers: {
               Authorization: `Bearer ${this.token}`,
               'Content-Type': 'application/json'
