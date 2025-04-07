@@ -3,7 +3,10 @@ requests
 gunicorn
 fastapi
 openai-agents
+openai
 asyncio
 unstructured
 unstructured[pdf]
 unstructured[docx]
+PyPDF2
+reportlab
