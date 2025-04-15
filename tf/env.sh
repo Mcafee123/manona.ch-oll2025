@@ -10,6 +10,7 @@ touch __secrets.sh
 . __secrets.sh
 
 # base settings
+delete_lock_name="DenyDelete"
 export TF_VAR_subscription_id="d5d5550b-8c21-407e-afb1-521e10206d9d"
 export TF_VAR_base_name="manona"
 export TF_VAR_location="switzerlandnorth"

@@ -13,7 +13,7 @@ rg_name=$(terraform output -raw rg_name)
 storage_account_id=$(terraform output -raw storage_account_id)
 storage_account_name=$(terraform output -raw storage_account_name)
 
-az lock create --name DenyDelete \
+az lock create --name $delete_lock_name \
 --lock-type CanNotDelete \
 --resource "$storage_account_id" \
 --notes "Deny delete lock for storage account"
